@@ -469,7 +469,307 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(details2.variant, "variantB")
     }
 
-    /*
-        should test all types
-     */
+    func testShouldReturnAValidEvaluationForBool() async {
+        let mockService = MockNetworkingService( mockStatus: 200)
+        let options = GoFeatureFlagProviderOptions(
+            endpoint: "http://localhost:1031/",
+            networkService: mockService
+        )
+        let provider = GoFeatureFlagProvider(options: options)
+
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        let expectation = XCTestExpectation(description: "waiting 1st event")
+        _ = api.observe().sink{ event in
+            if(event != ProviderEvent.ready){
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 3)
+
+        let client = api.getClient()
+        let details = client.getBooleanDetails(key: "bool-flag", defaultValue: false)
+        XCTAssertEqual(details.errorCode, nil)
+        XCTAssertEqual(details.errorMessage, nil)
+        XCTAssertEqual(details.value, true)
+        XCTAssertEqual(details.flagKey, "bool-flag")
+        XCTAssertEqual(details.reason, "TARGETING_MATCH")
+        XCTAssertEqual(details.variant, "variantA")
+    }
+
+    func testShouldReturnAValidEvaluationForInt() async {
+        let mockService = MockNetworkingService( mockStatus: 200)
+        let options = GoFeatureFlagProviderOptions(
+            endpoint: "http://localhost:1031/",
+            networkService: mockService
+        )
+        let provider = GoFeatureFlagProvider(options: options)
+
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        let expectation = XCTestExpectation(description: "waiting 1st event")
+        _ = api.observe().sink{ event in
+            if(event != ProviderEvent.ready){
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 3)
+
+        let client = api.getClient()
+        let details = client.getIntegerDetails(key: "int-flag", defaultValue: 1)
+        XCTAssertEqual(details.errorCode, nil)
+        XCTAssertEqual(details.errorMessage, nil)
+        XCTAssertEqual(details.value, 1234)
+        XCTAssertEqual(details.flagKey, "int-flag")
+        XCTAssertEqual(details.reason, "TARGETING_MATCH")
+        XCTAssertEqual(details.variant, "variantA")
+    }
+
+    func testShouldReturnAValidEvaluationForDouble() async {
+        let mockService = MockNetworkingService( mockStatus: 200)
+        let options = GoFeatureFlagProviderOptions(
+            endpoint: "http://localhost:1031/",
+            networkService: mockService
+        )
+        let provider = GoFeatureFlagProvider(options: options)
+
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        let expectation = XCTestExpectation(description: "waiting 1st event")
+        _ = api.observe().sink{ event in
+            if(event != ProviderEvent.ready){
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 3)
+
+        let client = api.getClient()
+        let details = client.getDoubleDetails(key: "double-flag", defaultValue: 1.1)
+        XCTAssertEqual(details.errorCode, nil)
+        XCTAssertEqual(details.errorMessage, nil)
+        XCTAssertEqual(details.value, 12.34)
+        XCTAssertEqual(details.flagKey, "double-flag")
+        XCTAssertEqual(details.reason, "TARGETING_MATCH")
+        XCTAssertEqual(details.variant, "variantA")
+    }
+
+    func testShouldReturnAValidEvaluationForString() async {
+        let mockService = MockNetworkingService( mockStatus: 200)
+        let options = GoFeatureFlagProviderOptions(
+            endpoint: "http://localhost:1031/",
+            networkService: mockService
+        )
+        let provider = GoFeatureFlagProvider(options: options)
+
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        let expectation = XCTestExpectation(description: "waiting 1st event")
+        _ = api.observe().sink{ event in
+            if(event != ProviderEvent.ready){
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 3)
+
+        let client = api.getClient()
+        let details = client.getStringDetails(key: "string-flag", defaultValue: "1")
+        XCTAssertEqual(details.errorCode, nil)
+        XCTAssertEqual(details.errorMessage, nil)
+        XCTAssertEqual(details.value, "1234value")
+        XCTAssertEqual(details.flagKey, "string-flag")
+        XCTAssertEqual(details.reason, "TARGETING_MATCH")
+        XCTAssertEqual(details.variant, "variantA")
+    }
+
+    func testShouldReturnAValidEvaluationForArray() async {
+        let mockService = MockNetworkingService( mockStatus: 200)
+        let options = GoFeatureFlagProviderOptions(
+            endpoint: "http://localhost:1031/",
+            networkService: mockService
+        )
+        let provider = GoFeatureFlagProvider(options: options)
+
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        let expectation = XCTestExpectation(description: "waiting 1st event")
+        _ = api.observe().sink{ event in
+            if(event != ProviderEvent.ready){
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 3)
+
+        let client = api.getClient()
+        let details = client.getObjectDetails(key: "array-flag", defaultValue: Value.list([Value.string("1")]))
+        XCTAssertEqual(details.errorCode, nil)
+        XCTAssertEqual(details.errorMessage, nil)
+        XCTAssertEqual(details.value, Value.list([Value.integer(1234),Value.integer(5678)]))
+        XCTAssertEqual(details.flagKey, "array-flag")
+        XCTAssertEqual(details.reason, "TARGETING_MATCH")
+        XCTAssertEqual(details.variant, "variantA")
+    }
+
+    func testShouldReturnAValidEvaluationForObject() async {
+        let mockService = MockNetworkingService( mockStatus: 200)
+        let options = GoFeatureFlagProviderOptions(
+            endpoint: "http://localhost:1031/",
+            networkService: mockService
+        )
+        let provider = GoFeatureFlagProvider(options: options)
+
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        let expectation = XCTestExpectation(description: "waiting 1st event")
+        _ = api.observe().sink{ event in
+            if(event != ProviderEvent.ready){
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 3)
+
+        let client = api.getClient()
+        let details = client.getObjectDetails(key: "object-flag", defaultValue: Value.list([Value.string("1")]))
+        XCTAssertEqual(details.errorCode, nil)
+        XCTAssertEqual(details.errorMessage, nil)
+        XCTAssertEqual(details.value, Value.structure(["testValue": Value.structure(["toto":Value.integer(1234)])]))
+        XCTAssertEqual(details.flagKey, "object-flag")
+        XCTAssertEqual(details.reason, "TARGETING_MATCH")
+        XCTAssertEqual(details.variant, "variantA")
+    }
+
+    func testShouldReturnTypeMismatchBool() async {
+        let mockService = MockNetworkingService( mockStatus: 200)
+        let options = GoFeatureFlagProviderOptions(
+            endpoint: "http://localhost:1031/",
+            networkService: mockService
+        )
+        let provider = GoFeatureFlagProvider(options: options)
+
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        let expectation = XCTestExpectation(description: "waiting 1st event")
+        _ = api.observe().sink{ event in
+            if(event != ProviderEvent.ready){
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 3)
+
+        let client = api.getClient()
+        let details = client.getBooleanDetails(key: "object-flag", defaultValue: false)
+        XCTAssertEqual(details.errorCode, ErrorCode.typeMismatch)
+        XCTAssertEqual(details.value, false)
+        XCTAssertEqual(details.flagKey, "object-flag")
+    }
+
+    func testShouldReturnTypeMismatchString() async {
+        let mockService = MockNetworkingService( mockStatus: 200)
+        let options = GoFeatureFlagProviderOptions(
+            endpoint: "http://localhost:1031/",
+            networkService: mockService
+        )
+        let provider = GoFeatureFlagProvider(options: options)
+
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        let expectation = XCTestExpectation(description: "waiting 1st event")
+        _ = api.observe().sink{ event in
+            if(event != ProviderEvent.ready){
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 3)
+
+        let client = api.getClient()
+        let details = client.getStringDetails(key: "object-flag", defaultValue: "default")
+        XCTAssertEqual(details.errorCode, ErrorCode.typeMismatch)
+        XCTAssertEqual(details.value, "default")
+        XCTAssertEqual(details.flagKey, "object-flag")
+    }
+
+    func testShouldReturnTypeMismatchInt() async {
+        let mockService = MockNetworkingService( mockStatus: 200)
+        let options = GoFeatureFlagProviderOptions(
+            endpoint: "http://localhost:1031/",
+            networkService: mockService
+        )
+        let provider = GoFeatureFlagProvider(options: options)
+
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        let expectation = XCTestExpectation(description: "waiting 1st event")
+        _ = api.observe().sink{ event in
+            if(event != ProviderEvent.ready){
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 3)
+
+        let client = api.getClient()
+        let details = client.getIntegerDetails(key: "object-flag", defaultValue: 1)
+        XCTAssertEqual(details.errorCode, ErrorCode.typeMismatch)
+        XCTAssertEqual(details.value, 1)
+        XCTAssertEqual(details.flagKey, "object-flag")
+    }
+
+    func testShouldReturnTypeMismatchDouble() async {
+        let mockService = MockNetworkingService( mockStatus: 200)
+        let options = GoFeatureFlagProviderOptions(
+            endpoint: "http://localhost:1031/",
+            networkService: mockService
+        )
+        let provider = GoFeatureFlagProvider(options: options)
+
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        let expectation = XCTestExpectation(description: "waiting 1st event")
+        _ = api.observe().sink{ event in
+            if(event != ProviderEvent.ready){
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 3)
+
+        let client = api.getClient()
+        let details = client.getDoubleDetails(key: "object-flag", defaultValue: 1.1)
+        XCTAssertEqual(details.errorCode, ErrorCode.typeMismatch)
+        XCTAssertEqual(details.value, 1.1)
+        XCTAssertEqual(details.flagKey, "object-flag")
+    }
+
+    func testShouldReturnTypeMismatchObject() async {
+        let mockService = MockNetworkingService( mockStatus: 200)
+        let options = GoFeatureFlagProviderOptions(
+            endpoint: "http://localhost:1031/",
+            networkService: mockService
+        )
+        let provider = GoFeatureFlagProvider(options: options)
+
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        let expectation = XCTestExpectation(description: "waiting 1st event")
+        _ = api.observe().sink{ event in
+            if(event != ProviderEvent.ready){
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+            }
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 3)
+
+        let client = api.getClient()
+        let details = client.getObjectDetails(key: "bool-flag", defaultValue: Value.list([Value.string("1")]))
+        XCTAssertEqual(details.errorCode, ErrorCode.typeMismatch)
+        XCTAssertEqual(details.value, Value.list([Value.string("1")]))
+        XCTAssertEqual(details.flagKey, "bool-flag")
+    }
 }

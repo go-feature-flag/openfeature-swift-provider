@@ -87,6 +87,72 @@ class MockNetworkingService: NetworkingService {
         "additionalProp2": true,
         "additionalProp3": true
       }
+    },
+    {
+      "value": true,
+      "key": "bool-flag",
+      "reason": "TARGETING_MATCH",
+      "variant": "variantA",
+      "metadata": {
+        "additionalProp1": true,
+        "additionalProp2": true,
+        "additionalProp3": true
+      }
+    },
+    {
+      "value": 1234,
+      "key": "int-flag",
+      "reason": "TARGETING_MATCH",
+      "variant": "variantA",
+      "metadata": {
+        "additionalProp1": true,
+        "additionalProp2": true,
+        "additionalProp3": true
+      }
+    },
+    {
+      "value": 12.34,
+      "key": "double-flag",
+      "reason": "TARGETING_MATCH",
+      "variant": "variantA",
+      "metadata": {
+        "additionalProp1": true,
+        "additionalProp2": true,
+        "additionalProp3": true
+      }
+    },
+    {
+      "value": "1234value",
+      "key": "string-flag",
+      "reason": "TARGETING_MATCH",
+      "variant": "variantA",
+      "metadata": {
+        "additionalProp1": true,
+        "additionalProp2": true,
+        "additionalProp3": true
+      }
+    },
+    {
+      "value": {"testValue":{"toto":1234}},
+      "key": "object-flag",
+      "reason": "TARGETING_MATCH",
+      "variant": "variantA",
+      "metadata": {
+        "additionalProp1": true,
+        "additionalProp2": true,
+        "additionalProp3": true
+      }
+    },
+    {
+      "value": [1234, 5678],
+      "key": "array-flag",
+      "reason": "TARGETING_MATCH",
+      "variant": "variantA",
+      "metadata": {
+        "additionalProp1": true,
+        "additionalProp2": true,
+        "additionalProp3": true
+      }
     }
   ]
 }

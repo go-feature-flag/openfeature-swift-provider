@@ -233,12 +233,9 @@ final class GoFeatureFlagProvider: FeatureProvider {
                 self.apiRetryAfter = getRetryAfterDate(from: response.allHeaderFields)
                 throw error
             default:
-                // TODO: convert error in OpenFeatureError?
                 throw error
             }
         } catch {
-            print(error)
-            // TODO: convert error in OpenFeatureError?
             throw error
         }
     }
@@ -283,7 +280,6 @@ final class GoFeatureFlagProvider: FeatureProvider {
                         weakSelf.eventHandler.send(.error)
                     }
                 } catch {
-                    // TODO: manage error
                     weakSelf.eventHandler.send(.error)
                 }
             }
