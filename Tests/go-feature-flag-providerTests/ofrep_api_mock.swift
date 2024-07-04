@@ -29,7 +29,7 @@ class MockNetworkingService: NetworkingService {
 
         var data = mockData ?? Data()
         var headers: [String: String]? = nil
-        if mockStatus == 429 || (targetingKey as! String == "429" && callCounter >= 2){
+        if mockStatus == 429 || (targetingKey == "429" && callCounter >= 2){
             headers = ["Retry-After": "120"]
             mockStatus = 429
             let response = HTTPURLResponse(url: request.url!, statusCode: mockStatus, httpVersion: nil, headerFields: headers)!
