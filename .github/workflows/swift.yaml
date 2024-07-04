@@ -1,0 +1,36 @@
+name: Swift
+
+on: [pull_request]
+
+jobs:
+  build-test:
+    name: Swift ${{ matrix.swift }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ macos-latest ]
+        swift: [ "5.10" ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: ${{ matrix.swift }}
+      - name: Get swift version
+        run: swift --version
+      - name: Build
+        run: swift build
+      - name: Run tests
+        run: swift test --enable-code-coverage
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+  lint:
+    name: Swift Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: norio-nomura/action-swiftlint@3.2.1
