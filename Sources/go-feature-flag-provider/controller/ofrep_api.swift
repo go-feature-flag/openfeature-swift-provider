@@ -34,9 +34,6 @@ class OfrepAPI {
         }
 
         let (data, response) = try await networkingService.doRequest(for: request)
-
-        print(response)
-
         guard let httpResponse = response as? HTTPURLResponse else {
             throw OfrepError.httpResponseCastError
         }
