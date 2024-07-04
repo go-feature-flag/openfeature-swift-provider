@@ -44,7 +44,7 @@ force_try:
   severity: warning # explicitly
 # rules that have both warning and error levels, can set just the warning level
 # implicitly
-line_length: 110
+line_length: 120
 # they can set both implicitly with an array
 type_body_length:
   - 300 # warning
@@ -71,5 +71,5 @@ identifier_name:
     - url
     - GlobalAPIKey
     - key
-    - 
+    - dto
 reporter: "xcode" # reporter type (xcode, json, csv, checkstyle, codeclimate, junit, html, emoji, sonarqube, markdown, github-actions-logging, summary)

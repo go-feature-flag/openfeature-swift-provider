@@ -16,11 +16,10 @@ struct EvaluationResponseFlagDTO: Codable {
 //    let metadata: [String:Value]?
 }
 
-struct OfrepEvaluationResponse{
+struct OfrepEvaluationResponse {
     let flags: [OfrepEvaluationResponseFlag]
     let errorCode: ErrorCode?
     let errorDetails: String?
-
 
     func isError() -> Bool {
         return errorCode != nil
@@ -28,12 +27,12 @@ struct OfrepEvaluationResponse{
 
     static func fromEvaluationResponseDTO(dto: EvaluationResponseDTO) -> OfrepEvaluationResponse {
         var flagsConverted: [OfrepEvaluationResponseFlag] = []
-        var errCode: ErrorCode? = nil
+        var errCode: ErrorCode?
         let errDetails = dto.errorDetails
 
         if let flagsDTO = dto.flags {
             for flag in flagsDTO {
-                var errorCode: ErrorCode? = nil
+                var errorCode: ErrorCode?
                 if let erroCodeValue = flag.errorCode {
                     errorCode = convertErrorCode(code: erroCodeValue)
                 }
@@ -56,7 +55,6 @@ struct OfrepEvaluationResponse{
 
         return OfrepEvaluationResponse(flags: flagsConverted, errorCode: errCode, errorDetails: errDetails)
     }
-
 
     static func convertErrorCode(code: String) -> ErrorCode {
         switch code {

@@ -468,4 +468,8 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(details2.reason, "TARGETING_MATCH")
         XCTAssertEqual(details2.variant, "variantB")
     }
+
+    /*
+        should test all types
+     */
 }

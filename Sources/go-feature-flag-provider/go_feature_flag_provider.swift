@@ -14,9 +14,8 @@ final class GoFeatureFlagProvider: FeatureProvider {
     private let ofrepAPI: OfrepAPI
 
     private var inMemoryCache: [String: OfrepEvaluationResponseFlag] = [:]
-    private var apiRetryAfter: Date? = nil
+    private var apiRetryAfter: Date?
     private var timer: DispatchSourceTimer?
-
 
     init(options: GoFeatureFlagProviderOptions) {
         self.options = options
@@ -28,8 +27,6 @@ final class GoFeatureFlagProvider: FeatureProvider {
         }
         self.ofrepAPI = OfrepAPI(networkingService: networkService, options: self.options)
     }
-
-
 
     func observe() -> AnyPublisher<OpenFeature.ProviderEvent, Never> {
         return eventHandler.observe()
@@ -47,7 +44,7 @@ final class GoFeatureFlagProvider: FeatureProvider {
                     self.startPolling(pollInterval: self.options.pollInterval)
                 }
 
-                if status == .success_with_changes {
+                if status == .successWithChanges {
                     self.eventHandler.send(.ready)
                     return
                 }
@@ -64,24 +61,23 @@ final class GoFeatureFlagProvider: FeatureProvider {
         self.eventHandler.send(.stale)
         self.evaluationContext = newContext
         Task {
-            do{
+            do {
                 let status = try await self.evaluateFlags(context: newContext)
-                if(status == .success_with_changes || status == .success_no_changes){
+                if(status == .successWithChanges || status == .successNoChanges ) {
                     self.eventHandler.send(.ready)
                 }
-            } catch let err as OfrepError {
-                switch err{
+            } catch let error as OfrepError {
+                switch error {
                 case .apiTooManyRequestsError:
                     return // we want to stay stale in that case so we ignore the error.
                 default:
-                    throw err
+                    throw error
                 }
             } catch {
                 self.eventHandler.send(.error)
             }
         }
     }
-
 
     func getBooleanEvaluation(key: String, defaultValue: Bool,
                               context: EvaluationContext?) throws -> ProviderEvaluation<Bool> {
@@ -95,14 +91,13 @@ final class GoFeatureFlagProvider: FeatureProvider {
             reason: flagCached.reason)
     }
 
-
     private func genericEvaluation(key: String) throws -> OfrepEvaluationResponseFlag {
         guard let flagCached = self.inMemoryCache[key] else {
             throw OpenFeatureError.flagNotFoundError(key: key)
         }
 
         if flagCached.isError() {
-            switch flagCached.errorCode{
+            switch flagCached.errorCode {
             case .flagNotFound:
                 throw OpenFeatureError.flagNotFoundError(key: key)
             case .invalidContext:
@@ -122,7 +117,6 @@ final class GoFeatureFlagProvider: FeatureProvider {
 
         return flagCached
     }
-
 
     func getStringEvaluation(key: String, defaultValue: String,
                              context: EvaluationContext?) throws -> ProviderEvaluation<String> {
@@ -186,7 +180,7 @@ final class GoFeatureFlagProvider: FeatureProvider {
 
         if arrayValue != nil {
             var convertedValue: [Value] = []
-            arrayValue?.forEach{ item in
+            arrayValue?.forEach { item in
                 convertedValue.append(item.toValue())
             }
             return ProviderEvaluation<Value>(
@@ -200,17 +194,17 @@ final class GoFeatureFlagProvider: FeatureProvider {
     private func evaluateFlags(context: EvaluationContext?) async throws -> BulkEvaluationStatus {
         if self.apiRetryAfter != nil && self.apiRetryAfter! > Date() {
             // we don't want to call the API because we got a 429
-            return BulkEvaluationStatus.rate_limited
+            return BulkEvaluationStatus.rateLimited
         }
 
         do {
             let (ofrepEvalResponse, httpResp) = try await self.ofrepAPI.postBulkEvaluateFlags(context: context)
 
             if httpResp.statusCode == 304 {
-                return BulkEvaluationStatus.success_no_changes
+                return BulkEvaluationStatus.successNoChanges
             }
 
-            if ofrepEvalResponse.isError(){
+            if ofrepEvalResponse.isError() {
                 switch ofrepEvalResponse.errorCode {
                 case .providerNotReady:
                     throw OpenFeatureError.providerNotReadyError
@@ -232,9 +226,9 @@ final class GoFeatureFlagProvider: FeatureProvider {
                 }
             }
             self.inMemoryCache = inMemoryCacheNew
-            return BulkEvaluationStatus.success_with_changes
-        } catch let error as OfrepError{
-            switch error{
+            return BulkEvaluationStatus.successWithChanges
+        } catch let error as OfrepError {
+            switch error {
             case .apiTooManyRequestsError(let response):
                 self.apiRetryAfter = getRetryAfterDate(from: response.allHeaderFields)
                 throw error
@@ -269,25 +263,22 @@ final class GoFeatureFlagProvider: FeatureProvider {
         return dateFormatter.date(from: retryAfterValue)
     }
 
-
-
-
     func startPolling(pollInterval: TimeInterval) {
         timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
         timer?.schedule(deadline: .now(), repeating: pollInterval, leeway: .milliseconds(100))
         timer?.setEventHandler { [weak self] in
             guard let weakSelf = self else { return }
             Task {
-                do{
+                do {
                     let status = try await weakSelf.evaluateFlags(context: weakSelf.evaluationContext)
-                    if status == .success_with_changes{
+                    if status == .successWithChanges {
                         weakSelf.eventHandler.send(.configurationChanged)
                     }
-                } catch let err as OfrepError {
-                    switch err{
+                } catch let error as OfrepError {
+                    switch error {
                     case .apiTooManyRequestsError:
                         weakSelf.eventHandler.send(.stale)
-                        throw err
+                        throw error
                     default:
                         weakSelf.eventHandler.send(.error)
                     }
