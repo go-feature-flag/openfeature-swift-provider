@@ -6,7 +6,7 @@ struct Metadata: ProviderMetadata {
     var name: String? = "GO Feature Flag provider"
 }
 
-final class GoFeatureFlagProvider: FeatureProvider {
+public final class GoFeatureFlagProvider: FeatureProvider {
     private let eventHandler = EventHandler(ProviderEvent.notReady)
     private var evaluationContext: OpenFeature.EvaluationContext?
 
@@ -17,7 +17,7 @@ final class GoFeatureFlagProvider: FeatureProvider {
     private var apiRetryAfter: Date?
     private var timer: DispatchSourceTimer?
 
-    init(options: GoFeatureFlagProviderOptions) {
+    public init(options: GoFeatureFlagProviderOptions) {
         self.options = options
 
         // Define network service to use
@@ -28,14 +28,14 @@ final class GoFeatureFlagProvider: FeatureProvider {
         self.ofrepAPI = OfrepAPI(networkingService: networkService, options: self.options)
     }
 
-    func observe() -> AnyPublisher<OpenFeature.ProviderEvent, Never> {
+    public func observe() -> AnyPublisher<OpenFeature.ProviderEvent, Never> {
         return eventHandler.observe()
     }
 
-    var hooks: [any Hook] = []
-    var metadata: ProviderMetadata = Metadata()
+    public var hooks: [any Hook] = []
+    public var metadata: ProviderMetadata = Metadata()
 
-    func initialize(initialContext: (any OpenFeature.EvaluationContext)?) {
+    public func initialize(initialContext: (any OpenFeature.EvaluationContext)?) {
         self.evaluationContext = initialContext
         Task {
             do {
@@ -56,7 +56,7 @@ final class GoFeatureFlagProvider: FeatureProvider {
         }
     }
 
-    func onContextSet(oldContext: (any OpenFeature.EvaluationContext)?,
+    public func onContextSet(oldContext: (any OpenFeature.EvaluationContext)?,
                       newContext: any OpenFeature.EvaluationContext) {
         self.eventHandler.send(.stale)
         self.evaluationContext = newContext
@@ -79,7 +79,7 @@ final class GoFeatureFlagProvider: FeatureProvider {
         }
     }
 
-    func getBooleanEvaluation(key: String, defaultValue: Bool,
+    public func getBooleanEvaluation(key: String, defaultValue: Bool,
                               context: EvaluationContext?) throws -> ProviderEvaluation<Bool> {
         let flagCached = try genericEvaluation(key: key)
         guard let value = flagCached.value?.asBoolean() else {
@@ -118,7 +118,7 @@ final class GoFeatureFlagProvider: FeatureProvider {
         return flagCached
     }
 
-    func getStringEvaluation(key: String, defaultValue: String,
+    public func getStringEvaluation(key: String, defaultValue: String,
                              context: EvaluationContext?) throws -> ProviderEvaluation<String> {
         let flagCached = try genericEvaluation(key: key)
         guard let value = flagCached.value?.asString() else {
@@ -130,7 +130,7 @@ final class GoFeatureFlagProvider: FeatureProvider {
             reason: flagCached.reason)
     }
 
-    func getIntegerEvaluation(key: String, defaultValue: Int64,
+    public func getIntegerEvaluation(key: String, defaultValue: Int64,
                               context: EvaluationContext?) throws -> ProviderEvaluation<Int64> {
         let flagCached = try genericEvaluation(key: key)
         guard let value = flagCached.value?.asInteger() else {
@@ -143,7 +143,7 @@ final class GoFeatureFlagProvider: FeatureProvider {
 
     }
 
-    func getDoubleEvaluation(key: String, defaultValue: Double,
+    public func getDoubleEvaluation(key: String, defaultValue: Double,
                              context: EvaluationContext?) throws -> ProviderEvaluation<Double> {
         let flagCached = try genericEvaluation(key: key)
         guard let value = flagCached.value?.asDouble() else {
@@ -156,7 +156,7 @@ final class GoFeatureFlagProvider: FeatureProvider {
 
     }
 
-    func getObjectEvaluation(key: String, defaultValue: Value,
+    public func getObjectEvaluation(key: String, defaultValue: Value,
                              context: EvaluationContext?) throws -> ProviderEvaluation<Value> {
         let flagCached = try genericEvaluation(key: key)
         let objValue = flagCached.value?.asObject()
@@ -260,7 +260,7 @@ final class GoFeatureFlagProvider: FeatureProvider {
         return dateFormatter.date(from: retryAfterValue)
     }
 
-    func startPolling(pollInterval: TimeInterval) {
+    private func startPolling(pollInterval: TimeInterval) {
         timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
         timer?.schedule(deadline: .now(), repeating: pollInterval, leeway: .milliseconds(100))
         timer?.setEventHandler { [weak self] in

@@ -1,11 +1,11 @@
 import Foundation
 
-protocol NetworkingService {
+public protocol NetworkingService {
     func doRequest(for request: URLRequest) async throws -> (Data, URLResponse)
 }
 
 extension URLSession: NetworkingService {
-    func doRequest(for request: URLRequest) async throws -> (Data, URLResponse) {
+    public func doRequest(for request: URLRequest) async throws -> (Data, URLResponse) {
         return try await data(for: request)
     }
 }
