@@ -2,7 +2,7 @@ import XCTest
 import Combine
 import Foundation
 import OpenFeature
-@testable import go_feature_flag_provider
+@testable import GOFeatureFlag
 
 class ProviderTests: XCTestCase {
     var defaultEvaluationContext: MutableContext!

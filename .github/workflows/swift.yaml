@@ -22,7 +22,7 @@ jobs:
       - name: Run tests
         run: swift test --enable-code-coverage
       - name: Prepare Code Coverage
-        run: xcrun llvm-cov export -format="lcov" .build/debug/go-feature-flag-providerPackageTests.xctest/Contents/MacOS/go-feature-flag-providerPackageTests  -instr-profile .build/debug/codecov/default.profdata > info.lcov
+        run: xcrun llvm-cov export -format="lcov" .build/debug/GOFeatureFlagPackageTests.xctest/Contents/MacOS/GOFeatureFlagPackageTests  -instr-profile .build/debug/codecov/default.profdata > info.lcov
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
         with:
