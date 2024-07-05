@@ -21,11 +21,14 @@ jobs:
         run: swift build
       - name: Run tests
         run: swift test --enable-code-coverage
+      - name: Prepare Code Coverage
+        run: xcrun llvm-cov export -format="lcov" .build/debug/go-feature-flag-providerPackageTests.xctest/Contents/MacOS/go-feature-flag-providerPackageTests  -instr-profile .build/debug/codecov/default.profdata > info.lcov
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: info.lcov
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
   lint:
