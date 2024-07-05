@@ -1,7 +1,7 @@
 import XCTest
 import Foundation
 import OpenFeature
-@testable import go_feature_flag_provider
+@testable import GOFeatureFlag
 
 class OfrepApiTests: XCTestCase {
     var defaultEvaluationContext: MutableContext!
