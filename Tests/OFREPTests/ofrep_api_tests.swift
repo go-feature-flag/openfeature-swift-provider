@@ -1,11 +1,11 @@
 import XCTest
 import Foundation
 import OpenFeature
-@testable import GOFeatureFlag
+@testable import OFREP
 
 class OfrepApiTests: XCTestCase {
     var defaultEvaluationContext: MutableContext!
-    var options = GoFeatureFlagProviderOptions(endpoint: "http://localhost:1031/")
+    var options = OfrepProviderOptions(endpoint: "http://localhost:1031/")
     override func setUp() {
         super.setUp()
         defaultEvaluationContext = MutableContext()
@@ -293,7 +293,7 @@ class OfrepApiTests: XCTestCase {
         }
         """
         let mockService = MockNetworkingService(mockData:  mockResponse.data(using: .utf8), mockStatus: 200)
-        let testOptions = GoFeatureFlagProviderOptions(endpoint: "")
+        let testOptions = OfrepProviderOptions(endpoint: "")
         let ofrepAPI = OfrepAPI(networkingService: mockService, options:testOptions)
         do {
             _ = try await ofrepAPI.postBulkEvaluateFlags(context: defaultEvaluationContext)

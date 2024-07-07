@@ -3,22 +3,22 @@ import Foundation
 import Combine
 
 struct Metadata: ProviderMetadata {
-    var name: String? = "GO Feature Flag provider"
+    var name: String? = "OFREP provider"
 }
 
-public final class GoFeatureFlagProvider: FeatureProvider {
+public class OfrepProvider: FeatureProvider {
     private let eventHandler = EventHandler(ProviderEvent.notReady)
     private var evaluationContext: OpenFeature.EvaluationContext?
 
-    private var options: GoFeatureFlagProviderOptions
+    private var options: OfrepProviderOptions
     private let ofrepAPI: OfrepAPI
 
     private var inMemoryCache: [String: OfrepEvaluationResponseFlag] = [:]
     private var apiRetryAfter: Date?
     private var timer: DispatchSourceTimer?
 
-    public init(options: GoFeatureFlagProviderOptions) {
-        self.options = options
+    public init(options: OfrepProviderOptions) {
+    self.options = options
 
         // Define network service to use
         var networkService: NetworkingService = URLSession.shared

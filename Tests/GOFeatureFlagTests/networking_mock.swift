@@ -1,14 +1,14 @@
 import Foundation
 import OpenFeature
-@testable import GOFeatureFlag
+@testable import OFREP
 
-class MockNetworkingService: NetworkingService {
+public class MockNetworkingService: NetworkingService {
     var mockData: Data?
     var mockStatus: Int
     var mockURLResponse: URLResponse?
     var callCounter = 0
 
-    init(mockData: Data? = nil, mockStatus: Int = 200, mockURLResponse: URLResponse? = nil) {
+    public init(mockData: Data? = nil, mockStatus: Int = 200, mockURLResponse: URLResponse? = nil) {
         self.mockData = mockData
         if mockData == nil {
             self.mockData = defaultResponse.data(using: .utf8)
@@ -17,7 +17,7 @@ class MockNetworkingService: NetworkingService {
         self.mockStatus = mockStatus
     }
 
-    func doRequest(for request: URLRequest) async throws -> (Data, URLResponse) {
+    public func doRequest(for request: URLRequest) async throws -> (Data, URLResponse) {
         callCounter+=1
         guard let jsonDictionary = try JSONSerialization.jsonObject(with: request.httpBody!, options: []) as? [String: Any] else {
             throw OpenFeatureError.invalidContextError

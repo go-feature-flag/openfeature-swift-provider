@@ -4,9 +4,9 @@ import OpenFeature
 class OfrepAPI {
     private let networkingService: NetworkingService
     private var etag: String = ""
-    private let options: GoFeatureFlagProviderOptions
+    private let options: OfrepProviderOptions
 
-    init(networkingService: NetworkingService, options: GoFeatureFlagProviderOptions) {
+    init(networkingService: NetworkingService, options: OfrepProviderOptions) {
         self.networkingService = networkingService
         self.options = options
     }
@@ -28,6 +28,13 @@ class OfrepAPI {
             "application/json",
             forHTTPHeaderField: "Content-Type"
         )
+
+        // adding headers from options
+        if let headers = self.options.headers {
+            for (key, value) in headers {
+                request.setValue(key, forHTTPHeaderField: value)
+            }
+        }
 
         if etag != "" {
             request.setValue(etag, forHTTPHeaderField: "If-None-Match")
