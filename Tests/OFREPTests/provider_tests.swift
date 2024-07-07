@@ -27,6 +27,12 @@ class ProviderTests: XCTestCase {
         super.tearDown()
     }
 
+    func testProviderMetadataName() async {
+        let options = OfrepProviderOptions(endpoint: "https://localhost:1031")
+        let provider = OfrepProvider(options: options)
+        XCTAssertEqual(provider.metadata.name, "OFREP provider")
+    }
+
     func testShouldBeInFATALStatusIf401ErrorDuringInitialise() async {
         // TODO: PROVIDER_FATAL event does not exist for now, we will test that the provider is in ERROR
         // issue open for the fatal state: https://github.com/open-feature/swift-sdk/issues/40

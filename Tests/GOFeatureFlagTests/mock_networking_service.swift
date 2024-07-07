@@ -5,9 +5,9 @@ import OpenFeature
 @testable import GOFeatureFlag
 
 class GoFeatureFlagProviderTests: XCTestCase {
-    var defaultEvaluationContext: MutableContext!
-    var cancellables: Set<AnyCancellable> = []
-    func testShouldBeInFATALStatusIf401ErrorDuringInitialise() async {
-        print("toto")
+    func testProviderMetadataName() async {
+        let options = GoFeatureFlagProviderOptions(endpoint: "https://localhost:1031")
+        let provider = GoFeatureFlagProvider(options: options)
+        XCTAssertEqual(provider.metadata.name, "GO Feature Flag provider")
     }
 }
