@@ -10,7 +10,7 @@ public struct GoFeatureFlagProviderOptions {
     public init(
         endpoint: String,
         pollInterval: TimeInterval = 30,
-        apiKey: String?,
+        apiKey: String? = nil,
         networkService: NetworkingService? = URLSession.shared) {
         self.endpoint = endpoint
         self.pollInterval = pollInterval
