@@ -12,16 +12,26 @@ let package = Package(
     products: [
         .library(
             name: "GOFeatureFlag",
-            targets: ["GOFeatureFlag"])
+            targets: ["GOFeatureFlag"]),
+        .library(
+            name: "OFREP",
+            targets: ["OFREP"])
     ],
     dependencies: [
         .package(url: "https://github.com/open-feature/swift-sdk.git", from: "0.1.0")
     ],
     targets: [
         .target(
-            name: "GOFeatureFlag",
+            name: "OFREP",
             dependencies: [
                 .product(name: "OpenFeature", package: "swift-sdk")
+            ],
+            plugins:[]
+        ),
+        .target(
+            name: "GOFeatureFlag",
+            dependencies: [
+                "OFREP"
             ],
             plugins:[]
         ),
@@ -29,6 +39,12 @@ let package = Package(
             name: "GOFeatureFlagTests",
             dependencies: [
                 "GOFeatureFlag"
+            ]
+        ),
+        .testTarget(
+            name: "OFREPTests",
+            dependencies: [
+                "OFREP"
             ]
         )
     ]
