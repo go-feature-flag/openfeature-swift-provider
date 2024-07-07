@@ -98,12 +98,22 @@ let result = client.getBooleanValue(key: "my-flag", defaultValue: false)
 ```
 
 GO Feature Flag supports different all OpenFeature supported types of feature flags, it means that you can use all the accessor directly
-- **Bool**: `client.getBooleanValue(key: "my-flag", defaultValue: false)`
-- **String**: `client.getStringValue(key: "my-flag", defaultValue: "default")`
-- **Integer**: `client.getIntegerValue(key: "my-flag", defaultValue: 1)`
-- **Double**: `client.getDoubleValue(key: "my-flag", defaultValue: 1.1)`
-- **Object**: `client.getObjectValue(key: "my-flag", defaultValue: Value.structure(["key":Value.integer("1234"))`
+```swift
+// Bool
+client.getBooleanValue(key: "my-flag", defaultValue: false)
 
+// String
+client.getStringValue(key: "my-flag", defaultValue: "default")
+
+// Integer
+client.getIntegerValue(key: "my-flag", defaultValue: 1)
+
+// Double
+client.getDoubleValue(key: "my-flag", defaultValue: 1.1)
+
+// Object
+client.getObjectValue(key: "my-flag", defaultValue: Value.structure(["key":Value.integer("1234"))
+```
 
 > [!NOTE]  
 > If you add a new flag in GO Feature Flag, expect some delay before having it available for the provider.
