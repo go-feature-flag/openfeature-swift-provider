@@ -1,11 +1,11 @@
 # GO Feature Flag - OpenFeature Swift provider
-<center>
-[![CI](https://github.com/go-feature-flag/openfeature-swift-provider/actions/workflows/swift.yaml/badge.svg)](https://github.com/go-feature-flag/openfeature-swift-provider/actions/workflows/swift.yaml)
-[![codecov](https://codecov.io/gh/go-feature-flag/openfeature-swift-provider/graph/badge.svg?token=G6BAIREGQN)](https://codecov.io/gh/go-feature-flag/openfeature-swift-provider)
-[![GitHub Release](https://img.shields.io/github/v/release/go-feature-flag/openfeature-swift-provider?label=release&display_name=tag&logo=Swift)](https://github.com/go-feature-flag/openfeature-swift-provider/releases)
-</center>
+<p align="center">
+   <a href="https://github.com/go-feature-flag/openfeature-swift-provider/actions/workflows/swift.yaml"><img src="https://github.com/go-feature-flag/openfeature-swift-provider/actions/workflows/swift.yaml/badge.svg" alt="CI"></a>
+   <a href="https://codecov.io/gh/go-feature-flag/openfeature-swift-provider"><img src="https://codecov.io/gh/go-feature-flag/openfeature-swift-provider/graph/badge.svg?token=G6BAIREGQN" alt="codecov"></a>
+   <a href="https://github.com/go-feature-flag/openfeature-swift-provider/releases"><img src="https://img.shields.io/github/v/release/go-feature-flag/openfeature-swift-provider?label=Package%20version&amp;display_name=tag&amp;logo=Swift" alt="GitHub Release"></a>
+</p>
 
-This repository contains the official Swift OpenFeature provider for accessing your feature flags with [**GO Feature Flag**](https://gofeatureflag.org).
+This repository contains the official Swift OpenFeature provider for accessing your feature flags with [GO Feature Flag](https://gofeatureflag.org).
 
 In conjuction with the [OpenFeature SDK](https://openfeature.dev/docs/reference/concepts/provider) you will be able to evaluate your feature flags in your **iOS**/**tvOS**/**macOS** applications.
 
