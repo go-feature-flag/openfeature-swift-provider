@@ -32,7 +32,7 @@ class OfrepAPI {
         // adding headers from options
         if let headers = self.options.headers {
             for (key, value) in headers {
-                request.setValue(key, forHTTPHeaderField: value)
+                request.setValue(value, forHTTPHeaderField: key)
             }
         }
 

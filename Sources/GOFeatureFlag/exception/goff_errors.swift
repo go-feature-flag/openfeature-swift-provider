@@ -1,18 +1,14 @@
-//
-//  File.swift
-//  
-//
-//  Created by thomas.poignant on 27/06/2024.
-//
-
 import Foundation
 
-enum OfrepError: Error {
+enum GoFeatureFlagError: Error, Equatable {
+    static func == (lhs: GoFeatureFlagError, rhs: GoFeatureFlagError) -> Bool {
+        return type(of: lhs) == type(of: rhs)
+    }
+
     case httpResponseCastError
+    case noEventToSend
     case unmarshallError(error: Error)
     case apiUnauthorizedError(response: HTTPURLResponse)
     case forbiddenError(response: HTTPURLResponse)
-    case apiTooManyRequestsError(response: HTTPURLResponse)
     case unexpectedResponseError(response: HTTPURLResponse)
-    case waitingRetryLater(date: Date?)
 }

@@ -1,13 +1,9 @@
-//
-//  File.swift
-//  
-//
-//  Created by thomas.poignant on 27/06/2024.
-//
-
 import Foundation
 
-enum InvalidOptions: Error {
+public enum InvalidOptions: Error, Equatable {
     case invalidEndpoint(message: String)
 
+    public static func == (lhs: InvalidOptions, rhs: InvalidOptions) -> Bool {
+        return type(of: lhs) == type(of: rhs)
+    }
 }
