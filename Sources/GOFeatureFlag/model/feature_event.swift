@@ -25,7 +25,7 @@ struct FeatureEvent: Codable {
     // Variation of the flag requested. Flag variation values can be "True", "False", "Default" or "SdkDefault"
     // depending on which value was taken during flag evaluation.
     // "SdkDefault" is used when an error is detected and the default value passed during the call to your variation is used.
-    var variation: String
+    var variation: String?
 
     // Value of the feature flag returned by feature flag evaluation.
     var value: JSONValue

@@ -66,8 +66,8 @@ public class MockNetworkingService: NetworkingService {
           "variant": "variantB",
           "metadata": {
             "additionalProp1": true,
-            "additionalProp2": true,
-            "additionalProp3": true
+            "additionalProp2": "value",
+            "additionalProp3": 123
           }
         }
       ]
@@ -84,8 +84,8 @@ public class MockNetworkingService: NetworkingService {
       "variant": "variantA",
       "metadata": {
         "additionalProp1": true,
-        "additionalProp2": true,
-        "additionalProp3": true
+        "additionalProp2": "value",
+        "additionalProp3": 123
       }
     },
     {
@@ -95,8 +95,8 @@ public class MockNetworkingService: NetworkingService {
       "variant": "variantA",
       "metadata": {
         "additionalProp1": true,
-        "additionalProp2": true,
-        "additionalProp3": true
+        "additionalProp2": "value",
+        "additionalProp3": 123
       }
     },
     {
@@ -106,8 +106,8 @@ public class MockNetworkingService: NetworkingService {
       "variant": "variantA",
       "metadata": {
         "additionalProp1": true,
-        "additionalProp2": true,
-        "additionalProp3": true
+        "additionalProp2": "value",
+        "additionalProp3": 123
       }
     },
     {
@@ -117,8 +117,8 @@ public class MockNetworkingService: NetworkingService {
       "variant": "variantA",
       "metadata": {
         "additionalProp1": true,
-        "additionalProp2": true,
-        "additionalProp3": true
+        "additionalProp2": "value",
+        "additionalProp3": 123
       }
     },
     {
@@ -128,8 +128,8 @@ public class MockNetworkingService: NetworkingService {
       "variant": "variantA",
       "metadata": {
         "additionalProp1": true,
-        "additionalProp2": true,
-        "additionalProp3": true
+        "additionalProp2": "value",
+        "additionalProp3": 123
       }
     },
     {
@@ -139,8 +139,8 @@ public class MockNetworkingService: NetworkingService {
       "variant": "variantA",
       "metadata": {
         "additionalProp1": true,
-        "additionalProp2": true,
-        "additionalProp3": true
+        "additionalProp2": "value",
+        "additionalProp3": 123
       }
     },
     {
@@ -150,8 +150,8 @@ public class MockNetworkingService: NetworkingService {
       "variant": "variantA",
       "metadata": {
         "additionalProp1": true,
-        "additionalProp2": true,
-        "additionalProp3": true
+        "additionalProp2": "value",
+        "additionalProp3": 123
       }
     }
   ]

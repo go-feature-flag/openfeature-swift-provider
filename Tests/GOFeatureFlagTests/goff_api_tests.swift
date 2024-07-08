@@ -152,7 +152,7 @@ class GoffApiTests: XCTestCase {
         do {
             (_,_) = try await goffAPI.postDataCollector(events: events)
             XCTFail("Expected to throw GoFeatureFlagError.invalidEndpoint, but no error was thrown.")
-        } catch let error as InvalidOptions {
+        } catch _ as InvalidOptions {
             // nothing to do here, this is a success
         } catch {
             XCTFail("exception thrown when doing the evaluation: \(error)")
@@ -167,7 +167,7 @@ class GoffApiTests: XCTestCase {
             FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970), key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE")
         ]
         do {
-            let (response, _) = try await goffAPI.postDataCollector(events: events)
+            (_, _) = try await goffAPI.postDataCollector(events: events)
             XCTFail("Expected to throw GoFeatureFlagError.unexpectedResponseError, but no error was thrown.")
         } catch let error as GoFeatureFlagError {
             switch error {
