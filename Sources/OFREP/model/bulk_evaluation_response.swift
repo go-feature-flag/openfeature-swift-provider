@@ -85,7 +85,7 @@ struct OfrepEvaluationResponse {
                     errorCode = convertErrorCode(code: erroCodeValue)
                 }
 
-                var convertedMetadata: [String: FlagMetadataValue]? = nil
+                var convertedMetadata: [String: FlagMetadataValue]?
                 if let metadata = flag.metadata {
                     convertedMetadata = Dictionary(uniqueKeysWithValues: metadata.map { key, value in
                         (key, value.toFlagMetadataValue())
@@ -142,7 +142,6 @@ struct OfrepEvaluationResponseFlag {
     let errorCode: ErrorCode?
     let errorDetails: String?
     let flagMetadata: [String:FlagMetadataValue]?
-
 
     func isError() -> Bool {
         return errorCode != nil

@@ -165,7 +165,8 @@ public class OfrepProvider: FeatureProvider {
                 reason: flagCached.reason
             )
         }
-        throw OpenFeatureError.generalError(message: "impossible to evaluate the flag because it is not a list or a dictionnary")
+        throw OpenFeatureError.generalError(
+            message: "impossible to evaluate the flag because it is not a list or a dictionnary")
     }
 
     private func genericEvaluation(key: String) throws -> OfrepEvaluationResponseFlag {
