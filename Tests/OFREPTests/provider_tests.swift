@@ -27,6 +27,12 @@ class ProviderTests: XCTestCase {
         super.tearDown()
     }
 
+    func testProviderMetadataName() async {
+        let options = OfrepProviderOptions(endpoint: "https://localhost:1031")
+        let provider = OfrepProvider(options: options)
+        XCTAssertEqual(provider.metadata.name, "OFREP provider")
+    }
+
     func testShouldBeInFATALStatusIf401ErrorDuringInitialise() async {
         // TODO: PROVIDER_FATAL event does not exist for now, we will test that the provider is in ERROR
         // issue open for the fatal state: https://github.com/open-feature/swift-sdk/issues/40
@@ -496,6 +502,10 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(details.flagKey, "bool-flag")
         XCTAssertEqual(details.reason, "TARGETING_MATCH")
         XCTAssertEqual(details.variant, "variantA")
+        XCTAssertEqual(details.flagMetadata.count, 3)
+        XCTAssertEqual(details.flagMetadata["additionalProp2"], FlagMetadataValue.string("value"))
+        XCTAssertEqual(details.flagMetadata["additionalProp1"], FlagMetadataValue.boolean(true))
+        XCTAssertEqual(details.flagMetadata["additionalProp3"], FlagMetadataValue.integer(123))
     }
 
     func testShouldReturnAValidEvaluationForInt() async {
@@ -525,6 +535,11 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(details.flagKey, "int-flag")
         XCTAssertEqual(details.reason, "TARGETING_MATCH")
         XCTAssertEqual(details.variant, "variantA")
+        XCTAssertEqual(details.flagMetadata.count, 3)
+        XCTAssertEqual(details.flagMetadata["additionalProp2"], FlagMetadataValue.string("value"))
+        XCTAssertEqual(details.flagMetadata["additionalProp1"], FlagMetadataValue.boolean(true))
+        XCTAssertEqual(details.flagMetadata["additionalProp3"], FlagMetadataValue.integer(123))
+
     }
 
     func testShouldReturnAValidEvaluationForDouble() async {
@@ -554,6 +569,9 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(details.flagKey, "double-flag")
         XCTAssertEqual(details.reason, "TARGETING_MATCH")
         XCTAssertEqual(details.variant, "variantA")
+        XCTAssertEqual(details.flagMetadata["additionalProp2"], FlagMetadataValue.string("value"))
+        XCTAssertEqual(details.flagMetadata["additionalProp1"], FlagMetadataValue.boolean(true))
+        XCTAssertEqual(details.flagMetadata["additionalProp3"], FlagMetadataValue.integer(123))
     }
 
     func testShouldReturnAValidEvaluationForString() async {
@@ -583,6 +601,9 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(details.flagKey, "string-flag")
         XCTAssertEqual(details.reason, "TARGETING_MATCH")
         XCTAssertEqual(details.variant, "variantA")
+        XCTAssertEqual(details.flagMetadata["additionalProp2"], FlagMetadataValue.string("value"))
+        XCTAssertEqual(details.flagMetadata["additionalProp1"], FlagMetadataValue.boolean(true))
+        XCTAssertEqual(details.flagMetadata["additionalProp3"], FlagMetadataValue.integer(123))
     }
 
     func testShouldReturnAValidEvaluationForArray() async {
@@ -612,6 +633,9 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(details.flagKey, "array-flag")
         XCTAssertEqual(details.reason, "TARGETING_MATCH")
         XCTAssertEqual(details.variant, "variantA")
+        XCTAssertEqual(details.flagMetadata["additionalProp2"], FlagMetadataValue.string("value"))
+        XCTAssertEqual(details.flagMetadata["additionalProp1"], FlagMetadataValue.boolean(true))
+        XCTAssertEqual(details.flagMetadata["additionalProp3"], FlagMetadataValue.integer(123))
     }
 
     func testShouldReturnAValidEvaluationForObject() async {
@@ -641,6 +665,9 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(details.flagKey, "object-flag")
         XCTAssertEqual(details.reason, "TARGETING_MATCH")
         XCTAssertEqual(details.variant, "variantA")
+        XCTAssertEqual(details.flagMetadata["additionalProp2"], FlagMetadataValue.string("value"))
+        XCTAssertEqual(details.flagMetadata["additionalProp1"], FlagMetadataValue.boolean(true))
+        XCTAssertEqual(details.flagMetadata["additionalProp3"], FlagMetadataValue.integer(123))
     }
 
     func testShouldReturnTypeMismatchBool() async {

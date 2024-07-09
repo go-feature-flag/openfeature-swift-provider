@@ -26,7 +26,6 @@ struct EvaluationRequest {
             let jsonData = try JSONSerialization.data(withJSONObject: filteredDictionary, options: [])
             return jsonData
         } catch {
-            // TODO: catch the errors and remap them
             throw error
         }
     }

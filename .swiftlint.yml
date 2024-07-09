@@ -72,4 +72,5 @@ identifier_name:
     - GlobalAPIKey
     - key
     - dto
+    - ctx
 reporter: "xcode" # reporter type (xcode, json, csv, checkstyle, codeclimate, junit, html, emoji, sonarqube, markdown, github-actions-logging, summary)

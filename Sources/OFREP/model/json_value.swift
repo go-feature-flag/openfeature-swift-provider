@@ -2,7 +2,7 @@ import Foundation
 import OpenFeature
 
 // Define a Codable enum that can represent any type of JSON value
-enum JSONValue: Codable, Equatable {
+public enum JSONValue: Codable, Equatable {
     case string(String)
     case integer(Int64)
     case double(Double)
@@ -12,7 +12,7 @@ enum JSONValue: Codable, Equatable {
     case null
 
     // Decode the JSON based on its type
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if let stringValue = try? container.decode(String.self) {
             self = .string(stringValue)
@@ -34,7 +34,7 @@ enum JSONValue: Codable, Equatable {
     }
 
     // Encode the JSON based on its type
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
         case .string(let value):
@@ -54,49 +54,49 @@ enum JSONValue: Codable, Equatable {
         }
     }
 
-    func asString() -> String? {
+    public func asString() -> String? {
         if case .string(let value) = self {
             return value
         }
         return nil
     }
 
-    func asBoolean() -> Bool? {
+    public func asBoolean() -> Bool? {
         if case .bool(let value) = self {
             return value
         }
         return nil
     }
 
-    func asInteger() -> Int64? {
+    public func asInteger() -> Int64? {
         if case .integer(let value) = self {
             return value
         }
         return nil
     }
 
-    func asDouble() -> Double? {
+    public func asDouble() -> Double? {
         if case .double(let value) = self {
             return value
         }
         return nil
     }
 
-    func asObject() -> [String:JSONValue]? {
+    public func asObject() -> [String:JSONValue]? {
         if case .object(let value) = self {
             return value
         }
         return nil
     }
 
-    func asArray() -> [JSONValue]? {
+    public func asArray() -> [JSONValue]? {
         if case .array(let value) = self {
             return value
         }
         return nil
     }
 
-    func toValue() -> Value {
+    public func toValue() -> Value {
             switch self {
             case .string(let string):
                 return .string(string)

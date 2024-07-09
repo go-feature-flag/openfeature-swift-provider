@@ -13,7 +13,57 @@ struct EvaluationResponseFlagDTO: Codable {
     let variant: String?
     let errorCode: String?
     let errorDetails: String?
-//    let metadata: [String:Value]?
+    let metadata: [String:FlagMetadataValueDto]?
+}
+
+enum FlagMetadataValueDto: Codable {
+    case boolean(Bool)
+    case string(String)
+    case integer(Int64)
+    case double(Double)
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let boolValue = try? container.decode(Bool.self) {
+            self = .boolean(boolValue)
+        } else if let stringValue = try? container.decode(String.self) {
+            self = .string(stringValue)
+        } else if let intValue = try? container.decode(Int64.self) {
+            self = .integer(intValue)
+        } else if let doubleValue = try? container.decode(Double.self) {
+            self = .double(doubleValue)
+        } else {
+            throw DecodingError.typeMismatch(
+                FlagMetadataValueDto.self,
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Unexpected value found for IntermediateFlagMetadataValue")
+            )
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .boolean(let value):
+            try container.encode(value)
+        case .string(let value):
+            try container.encode(value)
+        case .integer(let value):
+            try container.encode(value)
+        case .double(let value):
+            try container.encode(value)
+        }
+    }
+
+    func toFlagMetadataValue() -> FlagMetadataValue? {
+        switch self {
+        case .boolean(let value): return .boolean(value)
+        case .string(let value): return .string(value)
+        case .integer(let value): return .integer(value)
+        case .double(let value): return .double(value)
+        }
+    }
 }
 
 struct OfrepEvaluationResponse {
@@ -37,14 +87,24 @@ struct OfrepEvaluationResponse {
                     errorCode = convertErrorCode(code: erroCodeValue)
                 }
 
+                var convertedMetadata: [String: FlagMetadataValue]?
+                if let metadata = flag.metadata {
+                    convertedMetadata = Dictionary(uniqueKeysWithValues: metadata.map { key, value in
+                        (key, value.toFlagMetadataValue())
+                    }.compactMap { (key, value) -> (String, FlagMetadataValue)? in
+                        guard let value = value else { return nil }
+                        return (key, value)
+                    })
+                }
+
                 flagsConverted.append(OfrepEvaluationResponseFlag(
                     value: flag.value,
                     key: flag.key,
                     reason: flag.reason,
                     variant: flag.variant,
                     errorCode: errorCode,
-                    errorDetails: flag.errorDetails
-//                    metadata: flag.metadata
+                    errorDetails: flag.errorDetails,
+                    flagMetadata: convertedMetadata
                 ))
             }
         }
@@ -83,6 +143,7 @@ struct OfrepEvaluationResponseFlag {
     let variant: String?
     let errorCode: ErrorCode?
     let errorDetails: String?
+    let flagMetadata: [String:FlagMetadataValue]?
 
     func isError() -> Bool {
         return errorCode != nil
