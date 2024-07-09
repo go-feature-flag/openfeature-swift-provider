@@ -23,7 +23,7 @@ For documentation related to flags management in GO Feasture Flag, refer to the 
 
 ### Swift Package Manager
 
-In the dependencies section of Package.swift add:
+In the dependencies section of `Package.swift` add:
 ```swift
 .package(url: "https://github.com/go-feature-flag/openfeature-swift-provider.git", from: "0.1.0")
 ```
