@@ -1,8 +1,8 @@
 import Foundation
 
 enum GoFeatureFlagError: Error, Equatable {
-    static func == (lhs: GoFeatureFlagError, rhs: GoFeatureFlagError) -> Bool {
-        return type(of: lhs) == type(of: rhs)
+    static func == (left: GoFeatureFlagError, right: GoFeatureFlagError) -> Bool {
+        return type(of: left) == type(of: right)
     }
 
     case httpResponseCastError
