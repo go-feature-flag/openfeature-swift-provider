@@ -14,11 +14,18 @@ class ObjectHook: Hook {
         return
     }
 
-    func after<HookValue>(ctx: HookContext<HookValue>, details: FlagEvaluationDetails<HookValue>, hints: [String: Any]) {
+    func after<HookValue>(
+        ctx: HookContext<HookValue>,
+        details: FlagEvaluationDetails<HookValue>,
+        hints: [String: Any]) {
         let contextKind = "user"
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
-        let value: JSONValue = (details.value as! Value).toJSONValue()
+        guard let valueRaw = details.value as? Value else {
+            NSLog("Default value is not of type Object")
+            return
+        }
+        let value: JSONValue = valueRaw.toJSONValue()
 
         let event = FeatureEvent(
             kind: "feature",
@@ -38,7 +45,11 @@ class ObjectHook: Hook {
         let contextKind = "user"
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
-        let value: JSONValue = (ctx.defaultValue  as! Value).toJSONValue()
+        guard let valueRaw = ctx.defaultValue as? Value else {
+            NSLog("Default value is not of type Object")
+            return
+        }
+        let value: JSONValue = valueRaw.toJSONValue()
 
         let event = FeatureEvent(
             kind: "feature",

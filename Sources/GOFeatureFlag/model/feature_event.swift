@@ -22,9 +22,11 @@ struct FeatureEvent: Codable {
     // Key of the feature flag requested.
     var key: String
 
-    // Variation of the flag requested. Flag variation values can be "True", "False", "Default" or "SdkDefault"
+    // Variation of the flag requested. Flag variation values can be "True", "False", "Default" 
+    // or "SdkDefault"
     // depending on which value was taken during flag evaluation.
-    // "SdkDefault" is used when an error is detected and the default value passed during the call to your variation is used.
+    // "SdkDefault" is used when an error is detected and the default value passed during the 
+    // call to your variation is used.
     var variation: String?
 
     // Value of the feature flag returned by feature flag evaluation.
@@ -36,11 +38,13 @@ struct FeatureEvent: Codable {
     var `default`: Bool
 
     // Version contains the version of the flag.
-    // If the field is omitted for the flag in the configuration file the default version will be 0.
+    // If the field is omitted for the flag in the configuration file the 
+    // default version will be 0.
     var version: String?
 
     // Source indicates where the event was generated.
-    // This is set to SERVER when the event was evaluated in the relay-proxy and PROVIDER_CACHE when it is evaluated from the cache.
+    // This is set to SERVER when the event was evaluated 
+    // in the relay-proxy and PROVIDER_CACHE when it is evaluated from the cache.
     var source: String
 }
 
@@ -94,7 +98,12 @@ struct AnyCodable: Codable {
             let anyCodableDict = dictValue.mapValues { AnyCodable($0) }
             try container.encode(anyCodableDict)
         } else {
-            throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "Cannot encode value"))
+            throw EncodingError.invalidValue(
+                value,
+                EncodingError.Context(
+                    codingPath: encoder.codingPath,
+                    debugDescription: "Cannot encode value")
+            )
         }
     }
 }

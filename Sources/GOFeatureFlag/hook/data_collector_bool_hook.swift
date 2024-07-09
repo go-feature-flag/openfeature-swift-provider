@@ -2,7 +2,6 @@ import Foundation
 import OpenFeature
 import OFREP
 
-
 class BooleanHook: Hook {
     typealias HookValue = Bool
     let dataCollectorMngr: DataCollectorManager
@@ -15,11 +14,17 @@ class BooleanHook: Hook {
         return
     }
 
-    func after<HookValue>(ctx: HookContext<HookValue>, details: FlagEvaluationDetails<HookValue>, hints: [String: Any]) {
+    func after<HookValue>(
+        ctx: HookContext<HookValue>,
+        details: FlagEvaluationDetails<HookValue>,
+        hints: [String: Any]) {
         let contextKind = "user"
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
-        let value: Bool = details.value as! Bool
+        guard let value = details.value as? Bool else {
+            NSLog("Default value is not of type Bool")
+            return
+        }
 
         let event = FeatureEvent(
             kind: "feature",
@@ -35,11 +40,17 @@ class BooleanHook: Hook {
         self.dataCollectorMngr.appendFeatureEvent(event: event)
     }
 
-    func error<HookValue>(ctx: HookContext<HookValue>, error: Error, hints: [String: Any]) {
+    func error<HookValue>(
+        ctx: HookContext<HookValue>,
+        error: Error,
+        hints: [String: Any]) {
         let contextKind = "user"
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
-        let value: Bool = ctx.defaultValue as! Bool
+        guard let value = ctx.defaultValue as? Bool else {
+            NSLog("Default value is not of type Bool")
+            return
+        }
 
         let event = FeatureEvent(
             kind: "feature",

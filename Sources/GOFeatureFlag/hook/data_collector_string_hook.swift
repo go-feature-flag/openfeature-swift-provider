@@ -14,11 +14,17 @@ class StringHook: Hook {
         return
     }
 
-    func after<HookValue>(ctx: HookContext<HookValue>, details: FlagEvaluationDetails<HookValue>, hints: [String: Any]) {
+    func after<HookValue>(
+        ctx: HookContext<HookValue>,
+        details: FlagEvaluationDetails<HookValue>,
+        hints: [String: Any]) {
         let contextKind = "user"
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
-        let value: String = details.value as! String
+        guard let value = details.value as? String else {
+            NSLog("Default value is not of type String")
+            return
+        }
 
         let event = FeatureEvent(
             kind: "feature",
@@ -34,11 +40,17 @@ class StringHook: Hook {
         self.dataCollectorMngr.appendFeatureEvent(event: event)
     }
 
-    func error<HookValue>(ctx: HookContext<HookValue>, error: Error, hints: [String: Any]) {
+    func error<HookValue>(
+        ctx: HookContext<HookValue>,
+        error: Error,
+        hints: [String: Any]) {
         let contextKind = "user"
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
-        let value: String = ctx.defaultValue as! String
+        guard let value = ctx.defaultValue as? String else {
+            NSLog("Default value is not of type String")
+            return
+        }
 
         let event = FeatureEvent(
             kind: "feature",

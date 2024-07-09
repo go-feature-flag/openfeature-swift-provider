@@ -195,6 +195,7 @@ public class OfrepProvider: FeatureProvider {
         return flagCached
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     private func evaluateFlags(context: EvaluationContext?) async throws -> BulkEvaluationStatus {
         if self.apiRetryAfter != nil && self.apiRetryAfter! > Date() {
             // we don't want to call the API because we got a 429

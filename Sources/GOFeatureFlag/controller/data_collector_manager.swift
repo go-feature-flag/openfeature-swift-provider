@@ -15,7 +15,7 @@ class DataCollectorManager {
         self.options = options
     }
 
-    func start(){
+    func start() {
         timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
         timer?.schedule(deadline: .now(), repeating: self.options.dataCollectorInterval, leeway: .milliseconds(100))
         timer?.setEventHandler { [weak self] in

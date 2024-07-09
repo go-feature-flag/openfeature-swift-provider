@@ -14,11 +14,17 @@ class IntegerHook: Hook {
         return
     }
 
-    func after<HookValue>(ctx: HookContext<HookValue>, details: FlagEvaluationDetails<HookValue>, hints: [String: Any]) {
+    func after<HookValue>(
+        ctx: HookContext<HookValue>,
+        details: FlagEvaluationDetails<HookValue>,
+        hints: [String: Any]) {
         let contextKind = "user"
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
-        let value: Int64 = details.value as! Int64
+        guard let value = details.value as? Int64 else {
+            NSLog("Default value is not of type Integer")
+            return
+        }
 
         let event = FeatureEvent(
             kind: "feature",
@@ -38,7 +44,10 @@ class IntegerHook: Hook {
         let contextKind = "user"
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
-        let value: Int64 = ctx.defaultValue as! Int64
+        guard let value = ctx.defaultValue as? Int64 else {
+            NSLog("Default value is not of type Integer")
+            return
+        }
 
         let event = FeatureEvent(
             kind: "feature",

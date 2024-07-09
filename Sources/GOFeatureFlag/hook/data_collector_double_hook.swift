@@ -14,11 +14,17 @@ class DoubleHook: Hook {
         return
     }
 
-    func after<HookValue>(ctx: HookContext<HookValue>, details: FlagEvaluationDetails<HookValue>, hints: [String: Any]) {
+    func after<HookValue>(
+        ctx: HookContext<HookValue>,
+        details: FlagEvaluationDetails<HookValue>,
+        hints: [String: Any]) {
         let contextKind = "user"
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
-        let value: Double = details.value as! Double
+        guard let value = details.value as? Double else {
+            NSLog("Default value is not of type Double")
+            return
+        }
 
         let event = FeatureEvent(
             kind: "feature",
@@ -34,11 +40,18 @@ class DoubleHook: Hook {
         self.dataCollectorMngr.appendFeatureEvent(event: event)
     }
 
-    func error<HookValue>(ctx: HookContext<HookValue>, error: Error, hints: [String: Any]) {
+    func error<HookValue>(
+        ctx: HookContext<HookValue>,
+        error: Error,
+        hints: [String: Any]) {
         let contextKind = "user"
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
-        let value: Double = ctx.defaultValue as! Double
+
+        guard let value = ctx.defaultValue as? Double else {
+            NSLog("Default value is not of type Double")
+            return
+        }
 
         let event = FeatureEvent(
             kind: "feature",

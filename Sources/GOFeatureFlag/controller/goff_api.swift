@@ -12,7 +12,7 @@ class GoFeatureFlagAPI {
         self.options = options
     }
 
-    func postDataCollector(events: [FeatureEvent]?) async throws -> (DataCollectorResponse, HTTPURLResponse)  {
+    func postDataCollector(events: [FeatureEvent]?) async throws -> (DataCollectorResponse, HTTPURLResponse) {
         guard let events = events else {
             throw GoFeatureFlagError.noEventToSend
         }

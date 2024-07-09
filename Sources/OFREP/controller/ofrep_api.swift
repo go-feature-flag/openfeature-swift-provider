@@ -11,6 +11,7 @@ class OfrepAPI {
         self.options = options
     }
 
+    // swiftlint:disable:next function_body_length cyclomatic_complexity
     func postBulkEvaluateFlags(context: EvaluationContext?) async throws -> (OfrepEvaluationResponse, HTTPURLResponse) {
         guard let context = context else {
             throw OpenFeatureError.invalidContextError

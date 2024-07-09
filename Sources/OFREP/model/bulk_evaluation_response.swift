@@ -35,7 +35,9 @@ enum FlagMetadataValueDto: Codable {
         } else {
             throw DecodingError.typeMismatch(
                 FlagMetadataValueDto.self,
-                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Unexpected value found for IntermediateFlagMetadataValue")
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Unexpected value found for IntermediateFlagMetadataValue")
             )
         }
     }
