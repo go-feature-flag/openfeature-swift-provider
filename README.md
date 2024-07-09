@@ -3,6 +3,7 @@
    <a href="https://github.com/go-feature-flag/openfeature-swift-provider/actions/workflows/swift.yaml"><img src="https://github.com/go-feature-flag/openfeature-swift-provider/actions/workflows/swift.yaml/badge.svg" alt="CI"></a>
    <a href="https://codecov.io/gh/go-feature-flag/openfeature-swift-provider"><img src="https://codecov.io/gh/go-feature-flag/openfeature-swift-provider/graph/badge.svg?token=G6BAIREGQN" alt="codecov"></a>
    <a href="https://github.com/go-feature-flag/openfeature-swift-provider/releases"><img src="https://img.shields.io/github/v/release/go-feature-flag/openfeature-swift-provider?label=Package%20version&amp;display_name=tag&amp;logo=Swift" alt="GitHub Release"></a>
+   <a href="https://gofeatureflag.org/slack"><img src="https://img.shields.io/badge/join-us%20on%20slack-gray.svg?longCache=true&logo=slack&colorB=green" alt="Join us on slack"></a>
 </p>
 
 This repository contains the official Swift OpenFeature provider for accessing your feature flags with [GO Feature Flag](https://gofeatureflag.org).
