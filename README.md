@@ -10,7 +10,7 @@ This repository contains the official Swift OpenFeature provider for accessing y
 
 In conjuction with the [OpenFeature SDK](https://openfeature.dev/docs/reference/concepts/provider) you will be able to evaluate your feature flags in your **iOS**/**tvOS**/**macOS** applications.
 
-For documentation related to flags management in GO Feasture Flag, refer to the [GO Feature Flag documentation website](https://gofeatureflag.org/docs).
+For documentation related to flags management in GO Feature Flag, refer to the [GO Feature Flag documentation website](https://gofeatureflag.org/docs).
 
 ### Functionalities:
 - Managed the integration of the OpenFeature Swift SDK and GO Feature Flag relay-proxy.
