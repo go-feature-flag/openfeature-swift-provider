@@ -13,7 +13,7 @@ In conjuction with the [OpenFeature SDK](https://openfeature.dev/docs/reference/
 For documentation related to flags management in GO Feature Flag, refer to the [GO Feature Flag documentation website](https://gofeatureflag.org/docs).
 
 ### Functionalities:
-- Managed the integration of the OpenFeature Swift SDK and GO Feature Flag relay-proxy.
+- Manage the integration of the OpenFeature Swift SDK and GO Feature Flag relay-proxy.
 - Prefetch and cache flag evaluations in order to give the flag value in a efficient way.
 - Automatic configuration changes polling, to be informed as soon as a flag configuration has changed.
 - Automatic data collection about which flags have been accessed by the application
