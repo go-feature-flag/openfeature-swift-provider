@@ -6,8 +6,8 @@
         "repositoryURL": "https://github.com/open-feature/swift-sdk.git",
         "state": {
           "branch": null,
-          "revision": "907567cf9d43aad4c015a8758a7d53d755e76213",
-          "version": "0.2.0"
+          "revision": "b9007433bcc59a8c787e958f2aaf41bffef3bc31",
+          "version": "0.2.1"
         }
       }
     ]
