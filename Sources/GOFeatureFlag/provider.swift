@@ -38,9 +38,9 @@ public final class GoFeatureFlagProvider: FeatureProvider {
         )
     }
 
-    public func initialize(initialContext: (any OpenFeature.EvaluationContext)?) {
+    public func initialize(initialContext: OpenFeature.EvaluationContext?) async throws {
         self.hooks = dataCollectorMngr.getHooks()
-        self.ofrepProvider.initialize(initialContext: initialContext)
+        try await self.ofrepProvider.initialize(initialContext: initialContext)
 
         if self.options.dataCollectorInterval > 0 {
             self.hooks.append(BooleanHook(dataCollectorMngr: self.dataCollectorMngr))
@@ -54,8 +54,8 @@ public final class GoFeatureFlagProvider: FeatureProvider {
 
     public func onContextSet(
         oldContext: (any OpenFeature.EvaluationContext)?,
-        newContext: any OpenFeature.EvaluationContext) {
-            self.ofrepProvider.onContextSet(
+        newContext: any OpenFeature.EvaluationContext) async throws {
+            try await self.ofrepProvider.onContextSet(
                 oldContext: oldContext,
                 newContext: newContext)
         }
@@ -115,7 +115,7 @@ public final class GoFeatureFlagProvider: FeatureProvider {
             context: context)
     }
 
-    public func observe() -> AnyPublisher<OpenFeature.ProviderEvent, Never> {
+    public func observe() -> AnyPublisher<OpenFeature.ProviderEvent?, Never> {
         return self.ofrepProvider.observe()
     }
 }

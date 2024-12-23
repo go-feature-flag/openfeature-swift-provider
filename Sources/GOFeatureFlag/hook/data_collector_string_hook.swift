@@ -66,7 +66,8 @@ class StringHook: Hook {
         self.dataCollectorMngr.appendFeatureEvent(event: event)
     }
 
-    func finallyAfter<HookValue>(ctx: HookContext<HookValue>, hints: [String: Any]) {
+    func finally<HookValue>(
+        ctx: HookContext<HookValue>, details: FlagEvaluationDetails<HookValue>, hints: [String: Any]) {
         return
     }
 }

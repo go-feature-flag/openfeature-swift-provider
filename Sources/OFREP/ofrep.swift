@@ -7,7 +7,7 @@ struct Metadata: ProviderMetadata {
 }
 
 public class OfrepProvider: FeatureProvider {
-    private let eventHandler = EventHandler(ProviderEvent.notReady)
+    private let eventHandler = EventHandler()
     private var evaluationContext: OpenFeature.EvaluationContext?
 
     private var options: OfrepProviderOptions
@@ -26,54 +26,53 @@ public class OfrepProvider: FeatureProvider {
         self.ofrepAPI = OfrepAPI(networkingService: networkService, options: self.options)
     }
 
-    public func observe() -> AnyPublisher<OpenFeature.ProviderEvent, Never> {
-        return eventHandler.observe()
-    }
-
     public var hooks: [any Hook] = []
     public var metadata: ProviderMetadata = Metadata()
 
-    public func initialize(initialContext: (any OpenFeature.EvaluationContext)?) {
+    public func observe() -> AnyPublisher<OpenFeature.ProviderEvent?, Never> {
+            return eventHandler.observe()
+    }
+    
+    public func initialize(initialContext: (any OpenFeature.EvaluationContext)?) async throws {
         self.evaluationContext = initialContext
-        Task {
-            do {
-                let status = try await self.evaluateFlags(context: self.evaluationContext)
-                if self.options.pollInterval > 0 {
-                    self.startPolling(pollInterval: self.options.pollInterval)
-                }
+        do {
+            let status = try await self.evaluateFlags(context: self.evaluationContext)
+            if self.options.pollInterval > 0 {
+                self.startPolling(pollInterval: self.options.pollInterval)
+            }
 
-                if status == .successWithChanges {
-                    self.eventHandler.send(.ready)
-                    return
-                }
-                self.eventHandler.send(.error)
-            } catch {
-                // TODO: Should be FATAL here
-                self.eventHandler.send(.error)
+            if status == .successWithChanges {
+                return
+            }
+            
+            throw OpenFeatureError.generalError(message: "impossible to initialize the provider, receive unknown status")
+        } catch {
+            switch error {
+            case OfrepError.apiUnauthorizedError, OfrepError.forbiddenError:
+                throw OpenFeatureError.providerFatalError(message: error.localizedDescription)
+            default:
+                throw error
             }
         }
     }
 
     public func onContextSet(oldContext: (any OpenFeature.EvaluationContext)?,
-                             newContext: any OpenFeature.EvaluationContext) {
-        self.eventHandler.send(.stale)
+                             newContext: any OpenFeature.EvaluationContext) async throws {
         self.evaluationContext = newContext
-        Task {
-            do {
-                let status = try await self.evaluateFlags(context: newContext)
-                if(status == .successWithChanges || status == .successNoChanges ) {
-                    self.eventHandler.send(.ready)
-                }
-            } catch let error as OfrepError {
-                switch error {
-                case .apiTooManyRequestsError:
-                    return // we want to stay stale in that case so we ignore the error.
-                default:
-                    throw error
-                }
-            } catch {
-                self.eventHandler.send(.error)
+        do {
+            let status = try await self.evaluateFlags(context: newContext)
+            if(status == .successWithChanges || status == .successNoChanges ) {
+                return
             }
+        } catch let error as OfrepError {
+            switch error {
+            case .apiTooManyRequestsError:
+                return // we want to stay stale in that case so we ignore the error.
+            default:
+                throw error
+            }
+        } catch {
+            throw error
         }
     }
 
@@ -282,10 +281,10 @@ public class OfrepProvider: FeatureProvider {
                         weakSelf.eventHandler.send(.stale)
                         throw error
                     default:
-                        weakSelf.eventHandler.send(.error)
+                        throw error
                     }
                 } catch {
-                    weakSelf.eventHandler.send(.error)
+                    throw error
                 }
             }
         }
