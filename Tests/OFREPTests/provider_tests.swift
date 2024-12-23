@@ -77,7 +77,7 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.error(errorCode: nil, message: "The operation couldn’t be completed. (OFREP.OfrepError error 3.)")){
-                XCTFail("If OFREP API returns a 429 we should receive an ERROR event, received: \(event)")
+                XCTFail("If OFREP API returns a 429 we should receive an ERROR event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
@@ -106,7 +106,7 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.error(errorCode: nil, message: "The operation couldn’t be completed. (OpenFeature.OpenFeatureError error 5.)")){
-                XCTFail("If OFREP API returns a 400 for TARGETING_KEY_MISSING we should receive an ERROR event, received: \(event)")
+                XCTFail("If OFREP API returns a 400 for TARGETING_KEY_MISSING we should receive an ERROR event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
@@ -134,7 +134,7 @@ class ProviderTests: XCTestCase {
         
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.error(errorCode: nil, message: "The operation couldn’t be completed. (OpenFeature.OpenFeatureError error 4.)")){
-                XCTFail("If OFREP API returns a 400 for INVALID_CONTEXT we should receive an ERROR event, received: \(event)")
+                XCTFail("If OFREP API returns a 400 for INVALID_CONTEXT we should receive an ERROR event, received: \(String(describing: event))")
             }
             expectation.fulfill()
         }
@@ -164,7 +164,7 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.error(errorCode: nil, message: "The operation couldn’t be completed. (OpenFeature.OpenFeatureError error 2.)")){
-                XCTFail("If OFREP API returns a 400 for PARSE_ERROR we should receive an ERROR event, received: \(event)")
+                XCTFail("If OFREP API returns a 400 for PARSE_ERROR we should receive an ERROR event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
@@ -187,7 +187,7 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
@@ -212,7 +212,7 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
@@ -264,7 +264,7 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
@@ -300,7 +300,7 @@ class ProviderTests: XCTestCase {
             case .ready:
                 expect.fulfill()
             default:
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
                 expect.fulfill()
             }
         }
@@ -462,7 +462,7 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
@@ -495,12 +495,13 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
         await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
+        cancellable.cancel()
 
         let client = api.getClient()
         let details = client.getIntegerDetails(key: "int-flag", defaultValue: 1)
@@ -528,7 +529,7 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
@@ -559,7 +560,7 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
@@ -590,7 +591,7 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
@@ -621,7 +622,7 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
@@ -652,7 +653,7 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
@@ -677,7 +678,7 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
@@ -702,7 +703,7 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
@@ -727,7 +728,7 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
@@ -752,7 +753,7 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }

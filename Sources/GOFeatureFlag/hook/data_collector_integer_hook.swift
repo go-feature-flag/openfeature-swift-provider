@@ -63,7 +63,8 @@ class IntegerHook: Hook {
         self.dataCollectorMngr.appendFeatureEvent(event: event)
     }
 
-    func finally<HookValue>(ctx: HookContext<HookValue>, details: FlagEvaluationDetails<HookValue>, hints: [String: Any]){
+    func finally<HookValue>(
+        ctx: HookContext<HookValue>, details: FlagEvaluationDetails<HookValue>, hints: [String: Any]) {
         return
     }
 }

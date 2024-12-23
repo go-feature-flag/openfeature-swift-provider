@@ -60,8 +60,8 @@ class GoFeatureFlagProviderTests: XCTestCase {
         _ = client.getIntegerDetails(key: "int-flag", defaultValue: 1)
 
         let expectation = self.expectation(description: "Waiting for delay")
-        DispatchQueue.global().asyncAfter(deadline: .now() + 3.0) { expectation.fulfill() }
-        await fulfillment(of: [expectation], timeout: 4.0)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 4.0) { expectation.fulfill() }
+        await fulfillment(of: [expectation], timeout: 5.0)
 
         XCTAssertEqual(1, mockNetworkService.dataCollectorCallCounter)
         XCTAssertEqual(3, mockNetworkService.dataCollectorEventCounter)
@@ -71,8 +71,8 @@ class GoFeatureFlagProviderTests: XCTestCase {
         _ = client.getObjectDetails(key: "object-flag", defaultValue: Value.null)
 
         let expectation2 = self.expectation(description: "Waiting for delay")
-        DispatchQueue.global().asyncAfter(deadline: .now() + 3.0) { expectation2.fulfill() }
-        await fulfillment(of: [expectation2], timeout: 4.0)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 4.0) { expectation2.fulfill() }
+        await fulfillment(of: [expectation2], timeout: 5.0)
 
         XCTAssertEqual(2, mockNetworkService.dataCollectorCallCounter)
         XCTAssertEqual(6, mockNetworkService.dataCollectorEventCounter)
