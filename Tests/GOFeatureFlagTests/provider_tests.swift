@@ -17,7 +17,6 @@ class GoFeatureFlagProviderTests: XCTestCase {
             options: GoFeatureFlagProviderOptions(
                 endpoint: "https://localhost:1031",
                 dataFlushInterval: 1,
-                exporterMetadata: ["version": ExporterMetadataValue.string("1.0.0")],
                 networkService: mockNetworkService
             )
         )
@@ -40,20 +39,6 @@ class GoFeatureFlagProviderTests: XCTestCase {
 
         XCTAssertEqual(1, mockNetworkService.dataCollectorCallCounter)
         XCTAssertEqual(6, mockNetworkService.dataCollectorEventCounter)
-        
-        do {
-            let httpBodyCollector = mockNetworkService.requests[mockNetworkService.requests.count - 1].httpBody!
-            // print httpBodyCollector
-            print(String(data: httpBodyCollector, encoding: .utf8)!)
-            let json = try JSONSerialization.jsonObject(with: httpBodyCollector, options: []) as? [String: Any]
-            guard let jsonDict = json else {
-                XCTFail("Could not deserialize JSON")
-                return
-            }
-        } catch {
-            XCTFail("Error deserializing JSON: \(error)")
-        }
-        
     }
     
     func testExporterMetadata() async {
