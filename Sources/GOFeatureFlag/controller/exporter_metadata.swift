@@ -38,45 +38,4 @@ public enum ExporterMetadataValue: Codable, Equatable {
             try container.encode(value)
         }
     }
-
-    public func asString() -> String? {
-        if case .string(let value) = self {
-            return value
-        }
-        return nil
-    }
-
-    public func asBoolean() -> Bool? {
-        if case .bool(let value) = self {
-            return value
-        }
-        return nil
-    }
-
-    public func asInteger() -> Int64? {
-        if case .integer(let value) = self {
-            return value
-        }
-        return nil
-    }
-
-    public func asDouble() -> Double? {
-        if case .double(let value) = self {
-            return value
-        }
-        return nil
-    }
-
-    public func toValue() -> Value {
-            switch self {
-            case .string(let string):
-                return .string(string)
-            case .integer(let integer):
-                return .integer(integer)
-            case .double(let double):
-                return .double(double)
-            case .bool(let bool):
-                return .boolean(bool)
-            }
-        }
 }
