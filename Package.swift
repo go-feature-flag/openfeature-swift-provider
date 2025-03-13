@@ -18,7 +18,7 @@ let package = Package(
             targets: ["OFREP"])
     ],
     dependencies: [
-        .package(url: "https://github.com/open-feature/swift-sdk.git", branch: "fatal-state"),
+        .package(url: "https://github.com/open-feature/swift-sdk.git", from: "0.3.0"),
     ],
     targets: [
         .target(

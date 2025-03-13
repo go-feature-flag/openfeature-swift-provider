@@ -5,9 +5,9 @@
         "package": "OpenFeature",
         "repositoryURL": "https://github.com/open-feature/swift-sdk.git",
         "state": {
-          "branch": "fatal-state",
-          "revision": "81c9fa27c9091cca3c32211e627b3811a3e5e059",
-          "version": null
+          "branch": null,
+          "revision": "e2be5852827d7d6b837b9a4e577bb52bea6322d7",
+          "version": "0.3.0"
         }
       }
     ]
