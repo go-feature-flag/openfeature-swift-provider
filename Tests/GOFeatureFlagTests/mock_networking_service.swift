@@ -10,12 +10,14 @@ public class MockNetworkingService: NetworkingService {
     var callCounter = 0
     var dataCollectorCallCounter = 0
     var dataCollectorEventCounter = 0
+    var requests: [URLRequest] = []
 
     public init(mockStatus: Int = 200) {
         self.mockStatus = mockStatus
     }
 
     public func doRequest(for request: URLRequest) async throws -> (Data, URLResponse) {
+        self.requests.append(request)
         self.callCounter+=1
         let isDataCollector = request.url?.absoluteString.contains("/v1/data/collector") ?? false
         let isBulkEvaluation = request.url?.absoluteString.contains("/ofrep/v1/evaluate/flags") ?? false

@@ -25,7 +25,7 @@ For documentation related to flags management in GO Feature Flag, refer to the [
 
 In the dependencies section of `Package.swift` add:
 ```swift
-.package(url: "https://github.com/go-feature-flag/openfeature-swift-provider.git", from: "0.1.0")
+.package(url: "https://github.com/go-feature-flag/openfeature-swift-provider.git", from: "0.3.0")
 ```
 
 and in the target dependencies section add:

@@ -32,17 +32,24 @@ public struct GoFeatureFlagProviderOptions {
      * default: URLSession.shared
      */
     public var networkService: NetworkingService?
+    /**
+     * (optional) exporter metadata to be sent to the relay proxy data collector to be used for evaluation data events.
+     * default: empty
+     */
+    public var exporterMetadata: [String:ExporterMetadataValue]? = [:]
 
     public init(
         endpoint: String,
         pollInterval: TimeInterval = 60,
         apiKey: String? = nil,
         dataFlushInterval: TimeInterval = 600,
+        exporterMetadata: [String:ExporterMetadataValue]? = [:],
         networkService: NetworkingService? = URLSession.shared) {
         self.endpoint = endpoint
         self.pollInterval = pollInterval
         self.apiKey = apiKey
         self.networkService = networkService
         self.dataCollectorInterval = dataFlushInterval
+        self.exporterMetadata = exporterMetadata
     }
 }

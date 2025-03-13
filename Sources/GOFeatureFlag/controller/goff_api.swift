@@ -4,12 +4,20 @@ import OFREP
 
 class GoFeatureFlagAPI {
     private let networkingService: NetworkingService
-    private let options: GoFeatureFlagProviderOptions
-    private let metadata: [String:String] = ["provider": "openfeature-swift"]
+    private var options: GoFeatureFlagProviderOptions
 
     init(networkingService: NetworkingService, options: GoFeatureFlagProviderOptions) {
         self.networkingService = networkingService
         self.options = options
+        
+        if self.options.exporterMetadata == nil {
+            self.options.exporterMetadata = [:]
+        }
+        if var exporterMetadata = self.options.exporterMetadata {
+            exporterMetadata["openfeature"] = .bool(true)
+            exporterMetadata["provider"] = .string("swift")
+            self.options.exporterMetadata = exporterMetadata
+        }
     }
 
     func postDataCollector(events: [FeatureEvent]?) async throws -> (DataCollectorResponse, HTTPURLResponse) {
@@ -27,8 +35,8 @@ class GoFeatureFlagAPI {
         let dataCollectorURL = url.appendingPathComponent("v1/data/collector")
         var request = URLRequest(url: dataCollectorURL)
         request.httpMethod = "POST"
-
-        let requestBody = DataCollectorRequest(meta: metadata, events: events)
+        
+        let requestBody = DataCollectorRequest(meta: self.options.exporterMetadata, events: events)
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         request.httpBody = try encoder.encode(requestBody)
