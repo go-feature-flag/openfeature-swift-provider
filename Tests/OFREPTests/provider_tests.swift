@@ -34,9 +34,6 @@ class ProviderTests: XCTestCase {
     }
 
     func testShouldBeInFATALStatusIf401ErrorDuringInitialise() async {
-        // TODO: PROVIDER_FATAL event does not exist for now, we will test that the provider is in ERROR
-        // issue open for the fatal state: https://github.com/open-feature/swift-sdk/issues/40
-
         let mockResponse = "{}"
         let mockService = MockNetworkingService(mockData:  mockResponse.data(using: .utf8), mockStatus: 401)
 
@@ -48,22 +45,10 @@ class ProviderTests: XCTestCase {
 
         let api = OpenFeatureAPI()
         await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
-        let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
-            // TODO: Move to FATAL when the event will be handled by the SDK
-            if(event != ProviderEvent.error){
-                XCTFail("If OFREP API returns a 401 we should receive a FATAL event, received: \(event)")
-            }
-            expectation.fulfill()
-        }
-
-        await fulfillment(of: [expectation], timeout: 3.0)
+        XCTAssertEqual(api.getProviderStatus(), ProviderStatus.fatal)
     }
 
     func testShouldBeInFATALStatusIf403ErrorDuringInitialise() async {
-        // TODO: PROVIDER_FATAL event does not exist for now, we will test that the provider is in ERROR
-        // issue open for the fatal state: https://github.com/open-feature/swift-sdk/issues/40
-
         let mockResponse = "{}"
         let mockService = MockNetworkingService(mockData:  mockResponse.data(using: .utf8), mockStatus: 403)
 
@@ -75,15 +60,7 @@ class ProviderTests: XCTestCase {
 
         let api = OpenFeatureAPI()
         await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
-        let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
-            // TODO: Move to FATAL when the event will be handled by the SDK
-            if(event != ProviderEvent.error){
-                XCTFail("If OFREP API returns a 403 we should receive a FATAL event, received: \(event)")
-            }
-            expectation.fulfill()
-        }
-        await fulfillment(of: [expectation], timeout: 3.0)
+        XCTAssertEqual(api.getProviderStatus(), ProviderStatus.fatal)
     }
 
     func testShouldBeInErrorStatusIf429ErrorDuringInitialise() async {
@@ -95,17 +72,18 @@ class ProviderTests: XCTestCase {
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
-
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
-            if(event != ProviderEvent.error){
-                XCTFail("If OFREP API returns a 429 we should receive an ERROR event, received: \(event)")
+        let cancellable = api.observe().sink{ event in
+            if(event != ProviderEvent.error(errorCode: nil, message: "The operation couldn’t be completed. (OFREP.OfrepError error 3.)")){
+                XCTFail("If OFREP API returns a 429 we should receive an ERROR event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3.0)
+        cancellable.cancel()
     }
 
     func testShouldBeInErrorStatusIfErrorTargetingKeyIsMissing() async {
@@ -123,17 +101,18 @@ class ProviderTests: XCTestCase {
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
-
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
-            if(event != ProviderEvent.error){
-                XCTFail("If OFREP API returns a 400 for TARGETING_KEY_MISSING we should receive an ERROR event, received: \(event)")
+        let cancellable = api.observe().sink{ event in
+            if(event != ProviderEvent.error(errorCode: nil, message: "The operation couldn’t be completed. (OpenFeature.OpenFeatureError error 5.)")){
+                XCTFail("If OFREP API returns a 400 for TARGETING_KEY_MISSING we should receive an ERROR event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
+        cancellable.cancel()
     }
 
     func testShouldBeInErrorStatusIfErrorInvalidContext() async {
@@ -150,20 +129,19 @@ class ProviderTests: XCTestCase {
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
-
         let api = OpenFeatureAPI()
-
-
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
-        _ = api.observe().sink{ event in
-            if(event != ProviderEvent.error){
-                XCTFail("If OFREP API returns a 400 for INVALID_CONTEXT we should receive an ERROR event, received: \(event)")
+        
+        let cancellable = api.observe().sink{ event in
+            if(event != ProviderEvent.error(errorCode: nil, message: "The operation couldn’t be completed. (OpenFeature.OpenFeatureError error 4.)")){
+                XCTFail("If OFREP API returns a 400 for INVALID_CONTEXT we should receive an ERROR event, received: \(String(describing: event))")
             }
             expectation.fulfill()
         }
 
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
+        cancellable.cancel()
     }
 
     func testShouldBeInErrorStatusIfErrorParseError() async {
@@ -182,16 +160,18 @@ class ProviderTests: XCTestCase {
         let provider = OfrepProvider(options: options)
 
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
-            if(event != ProviderEvent.error){
-                XCTFail("If OFREP API returns a 400 for PARSE_ERROR we should receive an ERROR event, received: \(event)")
+        let cancellable = api.observe().sink{ event in
+            if(event != ProviderEvent.error(errorCode: nil, message: "The operation couldn’t be completed. (OpenFeature.OpenFeatureError error 2.)")){
+                XCTFail("If OFREP API returns a 400 for PARSE_ERROR we should receive an ERROR event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
 
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
+        cancellable.cancel()
     }
 
     func testShouldReturnAFlagNotFoundErrorIfTheFlagDoesNotExist() async {
@@ -204,15 +184,16 @@ class ProviderTests: XCTestCase {
         let provider = OfrepProvider(options: options)
 
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
+        let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
+        cancellable.cancel()
 
         let client = api.getClient()
         let details = client.getBooleanDetails(key: "non-existant-flag", defaultValue: false)
@@ -220,25 +201,25 @@ class ProviderTests: XCTestCase {
     }
 
     func testShouldReturnEvaluationDetailsIfTheFlagExists() async {
-        let mockService = MockNetworkingService( mockStatus: 400)
+        let mockService = MockNetworkingService( mockStatus: 200)
 
         let options = OfrepProviderOptions(
             endpoint: "http://localhost:1031/",
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
-
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
+        let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
-
+        cancellable.cancel()
+        
         let client = api.getClient()
         let details = client.getBooleanDetails(key: "my-flag", defaultValue: false)
         XCTAssertEqual(details.errorCode, nil)
@@ -272,25 +253,25 @@ class ProviderTests: XCTestCase {
   ]
 }
 """
-        let mockService = MockNetworkingService(mockData:  mockResponse.data(using: .utf8), mockStatus: 400)
+        let mockService = MockNetworkingService(mockData:  mockResponse.data(using: .utf8), mockStatus: 200)
 
         let options = OfrepProviderOptions(
             endpoint: "http://localhost:1031/",
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
-
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
+        let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
-
+        cancellable.cancel()
+        
         let client = api.getClient()
         let details = client.getBooleanDetails(key: "my-other-flag", defaultValue: false)
         XCTAssertEqual(details.errorCode, ErrorCode.parseError)
@@ -313,18 +294,19 @@ class ProviderTests: XCTestCase {
         let provider = OfrepProvider(options: options)
 
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         let expect = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
+        let cancellable = api.observe().sink{ event in
             switch event{
-            case ProviderEvent.ready:
+            case .ready:
                 expect.fulfill()
             default:
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
                 expect.fulfill()
             }
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expect], timeout: 3)
+        cancellable.cancel()
 
         let client = api.getClient()
         let details = client.getBooleanDetails(key: "my-flag", defaultValue: false)
@@ -341,25 +323,22 @@ class ProviderTests: XCTestCase {
 
         let expectation1 = expectation(description: "event 1")
         let expectation2 = expectation(description: "event 2")
-        let expectation3 = expectation(description: "event 3")
         var receivedEvents = [ProviderEvent]()
         api.observe().sink{ event in
-            receivedEvents.append(event)
+            receivedEvents.append(event!)
             switch receivedEvents.count{
             case 1:
                 expectation1.fulfill()
             case 2:
                 expectation2.fulfill()
-            case 3:
-                expectation3.fulfill()
             default:
                 break
             }
 
         }.store(in: &cancellables)
         api.setEvaluationContext(evaluationContext: newContext)
-        await fulfillment(of:[expectation1, expectation2, expectation3], timeout: 5)
-        let expectedEvents: [ProviderEvent] = [.ready, .stale, .ready]
+        await fulfillment(of:[expectation1, expectation2], timeout: 5)
+        let expectedEvents: [ProviderEvent] = [.reconciling, .contextChanged]
         XCTAssertEqual(receivedEvents, expectedEvents, "The events were not received in the expected order.")
 
         let details2 = client.getBooleanDetails(key: "my-flag", defaultValue: false)
@@ -385,13 +364,12 @@ class ProviderTests: XCTestCase {
         let ctx = MutableContext()
         ctx.setTargetingKey(targetingKey: "429")
 
-        await api.setProviderAndWait(provider: provider, initialContext: ctx)
-
+    
         let expectation1 = expectation(description: "Ready event")
         let expectation2 = expectation(description: "Stale event")
         var receivedEvents = [ProviderEvent]()
         api.observe().sink{ event in
-            receivedEvents.append(event)
+            receivedEvents.append(event!)
             switch receivedEvents.count{
             case 1:
                 expectation1.fulfill()
@@ -401,6 +379,7 @@ class ProviderTests: XCTestCase {
                 break
             }
         }.store(in: &cancellables)
+        await api.setProviderAndWait(provider: provider, initialContext: ctx)
         await fulfillment(of:[expectation1, expectation2], timeout: 5)
         let expectedEvents: [ProviderEvent] = [.ready, .stale]
         XCTAssertEqual(receivedEvents, expectedEvents, "The events were not received in the expected order.")
@@ -448,22 +427,19 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(details.reason, "STATIC")
         XCTAssertEqual(details.variant, "variantA")
 
-        let expectation1 = expectation(description: "Ready event")
-        let expectation2 = expectation(description: "ConfigurationChanged event")
+        let expectation1 = expectation(description: "ConfigurationChanged event")
         var receivedEvents = [ProviderEvent]()
         api.observe().sink{ event in
-            receivedEvents.append(event)
+            receivedEvents.append(event!)
             switch receivedEvents.count{
             case 1:
                 expectation1.fulfill()
-            case 2:
-                expectation2.fulfill()
             default:
                 break
             }
         }.store(in: &cancellables)
-        await fulfillment(of:[expectation1, expectation2], timeout: 7)
-        let expectedEvents: [ProviderEvent] = [.ready, .configurationChanged]
+        await fulfillment(of:[expectation1], timeout: 5)
+        let expectedEvents: [ProviderEvent] = [.configurationChanged]
         XCTAssertEqual(receivedEvents, expectedEvents, "The events were not received in the expected order.")
 
         let details2 = client.getBooleanDetails(key: "my-flag", defaultValue: false)
@@ -482,18 +458,18 @@ class ProviderTests: XCTestCase {
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
-
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
+        let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
-
+        cancellable.cancel()
+        
         let client = api.getClient()
         let details = client.getBooleanDetails(key: "bool-flag", defaultValue: false)
         XCTAssertEqual(details.errorCode, nil)
@@ -515,17 +491,17 @@ class ProviderTests: XCTestCase {
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
-
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
+        let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
+        cancellable.cancel()
 
         let client = api.getClient()
         let details = client.getIntegerDetails(key: "int-flag", defaultValue: 1)
@@ -549,18 +525,17 @@ class ProviderTests: XCTestCase {
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
-
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
+        let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
-
+        cancellable.cancel()
         let client = api.getClient()
         let details = client.getDoubleDetails(key: "double-flag", defaultValue: 1.1)
         XCTAssertEqual(details.errorCode, nil)
@@ -581,18 +556,17 @@ class ProviderTests: XCTestCase {
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
-
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
+        let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
-
+        cancellable.cancel()
         let client = api.getClient()
         let details = client.getStringDetails(key: "string-flag", defaultValue: "1")
         XCTAssertEqual(details.errorCode, nil)
@@ -613,18 +587,17 @@ class ProviderTests: XCTestCase {
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
-
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
+        let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
-
+        cancellable.cancel()
         let client = api.getClient()
         let details = client.getObjectDetails(key: "array-flag", defaultValue: Value.list([Value.string("1")]))
         XCTAssertEqual(details.errorCode, nil)
@@ -645,18 +618,17 @@ class ProviderTests: XCTestCase {
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
-
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
+        let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
-
+        cancellable.cancel()
         let client = api.getClient()
         let details = client.getObjectDetails(key: "object-flag", defaultValue: Value.list([Value.string("1")]))
         XCTAssertEqual(details.errorCode, nil)
@@ -677,18 +649,17 @@ class ProviderTests: XCTestCase {
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
-
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
+        let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
-
+        cancellable.cancel()
         let client = api.getClient()
         let details = client.getBooleanDetails(key: "object-flag", defaultValue: false)
         XCTAssertEqual(details.errorCode, ErrorCode.typeMismatch)
@@ -703,18 +674,17 @@ class ProviderTests: XCTestCase {
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
-
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
+        let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
-
+        cancellable.cancel()
         let client = api.getClient()
         let details = client.getStringDetails(key: "object-flag", defaultValue: "default")
         XCTAssertEqual(details.errorCode, ErrorCode.typeMismatch)
@@ -729,18 +699,17 @@ class ProviderTests: XCTestCase {
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
-
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
+        let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
-
+        cancellable.cancel()
         let client = api.getClient()
         let details = client.getIntegerDetails(key: "object-flag", defaultValue: 1)
         XCTAssertEqual(details.errorCode, ErrorCode.typeMismatch)
@@ -755,18 +724,17 @@ class ProviderTests: XCTestCase {
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
-
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
+        let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
-
+        cancellable.cancel()
         let client = api.getClient()
         let details = client.getDoubleDetails(key: "object-flag", defaultValue: 1.1)
         XCTAssertEqual(details.errorCode, ErrorCode.typeMismatch)
@@ -781,18 +749,17 @@ class ProviderTests: XCTestCase {
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
-
         let api = OpenFeatureAPI()
-        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         let expectation = XCTestExpectation(description: "waiting 1st event")
-        _ = api.observe().sink{ event in
+        let cancellable = api.observe().sink{ event in
             if(event != ProviderEvent.ready){
-                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(event)")
+                XCTFail("If OFREP API returns a 200 we should receive a ready event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
         }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3)
-
+        cancellable.cancel()
         let client = api.getClient()
         let details = client.getObjectDetails(key: "bool-flag", defaultValue: Value.list([Value.string("1")]))
         XCTAssertEqual(details.errorCode, ErrorCode.typeMismatch)
