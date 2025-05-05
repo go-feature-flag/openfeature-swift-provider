@@ -141,3 +141,5 @@ OpenFeatureAPI.shared.observe().sink { event in
 - `.PROVIDER_STALE`: Provider has not the latest version of the feature flags.
 - `.notReady`: Provider is not ready to evaluate the feature flags.
 
+## Thanks
+_This project is tested with BrowserStack_.
