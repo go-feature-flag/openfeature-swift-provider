@@ -204,4 +204,33 @@ class GoFeatureFlagProviderTests: XCTestCase {
         XCTAssertEqual(2, mockNetworkService.dataCollectorCallCounter)
         XCTAssertEqual(6, mockNetworkService.dataCollectorEventCounter)
     }
+
+    func testProviderCustomHeaders() async {
+        let mockNetworkService = MockNetworkingService(mockStatus: 200)
+        let provider = GoFeatureFlagProvider(
+            options: GoFeatureFlagProviderOptions(
+                endpoint: "https://localhost:1031",
+                apiKey: "apiKey1"
+                customHeaders: [
+                    "X-Custom-Header": "custom-value",
+                    "Authorization": "Bearer custom" // should be overwritten by apiKey
+                ]
+                networkService: mockNetworkService
+            )
+        )
+        let evaluationCtx = MutableContext(targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0")
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: evaluationCtx)
+        let client = api.getClient()
+
+        _ = client.getBooleanDetails(key: "my-flag", defaultValue: false)
+
+        guard let request = mockNetworkService.requests.last else {
+            XCTFail("No request captured")
+            return
+        }
+
+        XCTAssertEqual("custom-value", request.allHTTPHeaderFields?["X-Custom-Header"])
+        XCTAssertEqual("Bearer apiKey1", request.allHTTPHeaderFields?["Authorization"])
+    }
 }

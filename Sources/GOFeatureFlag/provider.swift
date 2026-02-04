@@ -20,7 +20,7 @@ public final class GoFeatureFlagProvider: FeatureProvider {
             networkService = netSer
         }
 
-        var headers: [String:String] = [:]
+        var headers: [String:String] = options.customHeaders ?? [:]
         if let apiKey = options.apiKey {
             headers["Authorization"] = "Bearer \(apiKey)"
         }

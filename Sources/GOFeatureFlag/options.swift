@@ -21,6 +21,11 @@ public struct GoFeatureFlagProviderOptions {
      */
     public var apiKey: String?
     /**
+     * (optional) custom headers to be sent for every HTTP request.
+     * default: empty
+     */
+    public var customHeaders: [String:String]? = [:]
+    /**
      * (optional) interval time we publish statistics collection data to the proxy.
      * The parameter is used only if the cache is enabled, otherwise the collection of the data is done directly
      * when calling the evaluation API.
@@ -42,12 +47,14 @@ public struct GoFeatureFlagProviderOptions {
         endpoint: String,
         pollInterval: TimeInterval = 60,
         apiKey: String? = nil,
+        customHeaders: [String:String]? = [:],
         dataFlushInterval: TimeInterval = 600,
         exporterMetadata: [String:ExporterMetadataValue]? = [:],
         networkService: NetworkingService? = URLSession.shared) {
         self.endpoint = endpoint
         self.pollInterval = pollInterval
         self.apiKey = apiKey
+        self.customHeaders = customHeaders
         self.networkService = networkService
         self.dataCollectorInterval = dataFlushInterval
         self.exporterMetadata = exporterMetadata
