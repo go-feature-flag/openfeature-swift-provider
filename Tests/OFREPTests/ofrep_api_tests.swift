@@ -4,18 +4,21 @@ import OpenFeature
 @testable import OFREP
 
 class OfrepApiTests: XCTestCase {
-    var defaultEvaluationContext: MutableContext!
+    var defaultEvaluationContext: ImmutableContext!
     var options = OfrepProviderOptions(endpoint: "http://localhost:1031/")
     override func setUp() {
         super.setUp()
-        defaultEvaluationContext = MutableContext()
-        defaultEvaluationContext.setTargetingKey(targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0")
-        defaultEvaluationContext.add(key: "email", value: Value.string("john.doe@gofeatureflag.org"))
-        defaultEvaluationContext.add(key: "name", value: Value.string("John Doe"))
-        defaultEvaluationContext.add(key: "age", value: Value.integer(2))
-        defaultEvaluationContext.add(key: "category", value: Value.double(2.2))
-        defaultEvaluationContext.add(key: "struct", value: Value.structure(["test" : Value.string("test")]))
-        defaultEvaluationContext.add(key: "list", value: Value.list([Value.string("test1"), Value.string("test2")]))
+        defaultEvaluationContext = ImmutableContext(
+            targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0",
+            structure: ImmutableStructure(attributes: [
+                "email": Value.string("john.doe@gofeatureflag.org"),
+                "name": Value.string("John Doe"),
+                "age": Value.integer(2),
+                "category": Value.double(2.2),
+                "struct": Value.structure(["test": Value.string("test")]),
+                "list": Value.list([Value.string("test1"), Value.string("test2")])
+            ])
+        )
     }
     override func tearDown() {
         defaultEvaluationContext = nil
@@ -232,8 +235,9 @@ class OfrepApiTests: XCTestCase {
 
         let ofrepAPI = OfrepAPI(networkingService: mockService, options:options)
         do {
-            let ctx = MutableContext()
-            ctx.add(key: "email", value: Value.string("john.doe@gofeatureflag.org"))
+            let ctx = ImmutableContext(
+                attributes: ["email": Value.string("john.doe@gofeatureflag.org")]
+            )
             _ = try await ofrepAPI.postBulkEvaluateFlags(context: ctx)
             XCTFail("Should throw an exception")
         } catch let error as OpenFeatureError {
