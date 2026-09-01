@@ -70,7 +70,7 @@ class GoFeatureFlagProviderTests: XCTestCase {
         XCTAssertEqual(6, mockNetworkService.dataCollectorEventCounter)
         
         do {
-            let httpBodyCollector = mockNetworkService.requests[mockNetworkService.requests.count - 1].httpBody!
+            let httpBodyCollector = try lastDataCollectorBody(mockNetworkService)
             let decodedStruct = try JSONDecoder().decode(DataCollectorRequest.self, from: httpBodyCollector)
             let want = [
                 "version": ExporterMetadataValue.string("1.0.0"),
@@ -113,7 +113,7 @@ class GoFeatureFlagProviderTests: XCTestCase {
         XCTAssertEqual(6, mockNetworkService.dataCollectorEventCounter)
         
         do {
-            let httpBodyCollector = mockNetworkService.requests[mockNetworkService.requests.count - 1].httpBody!
+            let httpBodyCollector = try lastDataCollectorBody(mockNetworkService)
             let decodedStruct = try JSONDecoder().decode(DataCollectorRequest.self, from: httpBodyCollector)
             let want = [
                 "openfeature": ExporterMetadataValue.bool(true),
@@ -219,5 +219,20 @@ class GoFeatureFlagProviderTests: XCTestCase {
             file: file,
             line: line
         )
+    }
+
+    /// Returns the body of the most recent data collector request.
+    /// Picking `requests.last` is wrong: the provider also polls for flags, so
+    /// a bulk evaluation request can land after the flush we care about.
+    private func lastDataCollectorBody(
+        _ mock: MockNetworkingService,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws -> Data {
+        let collectorRequests = mock.requests.filter {
+            $0.url?.absoluteString.contains("/v1/data/collector") ?? false
+        }
+        let body = collectorRequests.last?.httpBody
+        return try XCTUnwrap(body, "no data collector request recorded", file: file, line: line)
     }
 }
