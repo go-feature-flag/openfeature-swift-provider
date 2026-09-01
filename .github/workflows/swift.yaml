@@ -5,43 +5,117 @@ on:
     branches:
       - main
   pull_request:
-    types: 
+    types:
       - opened
       - synchronize
       - reopened
 
 jobs:
   build-test:
-    name: Swift ${{ matrix.swift }} on ${{ matrix.os }}
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental || false }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ macos-latest ]
-        swift: [ "5.10" ]
+        include:
+          # Oldest toolchain we can still obtain. macos-14 is deprecated:
+          # brownouts start 2026-10-05, image retired 2026-11-02.
+          # DELETE THIS ENTRY BY NOVEMBER 2026.
+          # See https://github.com/actions/runner-images/issues/13518
+          - name: "Swift 5.10 (Xcode 15.4) [legacy, non-blocking]"
+            os: macos-14
+            xcode: "15.4"
+            experimental: true
+          # Oldest fully-supported toolchain - the real floor.
+          - name: "Swift 6.0 (Xcode 16.0)"
+            os: macos-15
+            xcode: "16.0"
+          - name: "Swift 6.1 (Xcode 16.4)"
+            os: macos-15
+            xcode: "16.4"
+          # Pinned modern toolchain; owns the coverage upload.
+          - name: "Swift 6.2 (Xcode 26.0.1)"
+            os: macos-26
+            xcode: "26.0.1"
+            coverage: true
+          # Floating early-warning job: no Xcode pin, uses whatever
+          # macos-latest ships. Non-blocking by design.
+          - name: "Latest (default Xcode) [early warning, non-blocking]"
+            os: macos-latest
+            experimental: true
     steps:
       - uses: actions/checkout@v4
-      - uses: swift-actions/setup-swift@v2
+
+      # NOTE: do not use swift-actions/setup-swift here. On macOS it installs a
+      # standalone toolchain but not an SDK, so SwiftPM still picks up the SDK
+      # from the selected Xcode. That skew is what broke this workflow: a Swift
+      # 5.10 compiler against Xcode 26's MacOSX26.5.sdk cannot parse the SDK
+      # module maps. Selecting an Xcode gives a matched compiler + SDK pair.
+      - name: Select Xcode ${{ matrix.xcode }}
+        if: matrix.xcode != ''
+        uses: maxim-lobanov/setup-xcode@v1
         with:
-          swift-version: ${{ matrix.swift }}
-      - name: Get swift version
-        run: swift --version
+          xcode-version: ${{ matrix.xcode }}
+
+      - name: Toolchain versions
+        run: |
+          xcodebuild -version
+          swift --version
+          xcrun --show-sdk-version
+
       - name: Build
         run: swift build
+
       - name: Run tests
         run: swift test --enable-code-coverage
+
       - name: Prepare Code Coverage
-        run: xcrun llvm-cov export -format="lcov" .build/debug/GOFeatureFlagPackageTests.xctest/Contents/MacOS/GOFeatureFlagPackageTests  -instr-profile .build/debug/codecov/default.profdata > info.lcov
+        if: matrix.coverage
+        run: |
+          BIN_PATH="$(swift build --show-bin-path)"
+          xcrun llvm-cov export -format="lcov" \
+            "${BIN_PATH}/GOFeatureFlagPackageTests.xctest/Contents/MacOS/GOFeatureFlagPackageTests" \
+            -instr-profile "${BIN_PATH}/codecov/default.profdata" > info.lcov
+
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4
+        if: matrix.coverage
+        uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           files: info.lcov
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  build-ios:
+    name: iOS build (Xcode 26.0.1)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.0.1"
+      - name: Build for iOS
+        run: |
+          xcodebuild build \
+            -scheme GOFeatureFlag \
+            -destination 'generic/platform=iOS'
+
   lint:
     name: Swift Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: norio-nomura/action-swiftlint@3.2.1
+
+  # Single stable status check for branch protection. Adding or removing a
+  # matrix entry then never requires touching the required-checks config.
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs: [ build-test, build-ios, lint ]
+    if: always()
+    steps:
+      - name: Fail if any required job failed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
+      - run: echo "All required CI jobs passed."
