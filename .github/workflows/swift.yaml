@@ -58,11 +58,15 @@ jobs:
         with:
           xcode-version: ${{ matrix.xcode }}
 
+      # Diagnostics only - must never gate the build. Note the explicit
+      # `--sdk macosx`: a bare `xcrun --show-sdk-version` resolves via the
+      # CommandLineTools symlink, which is missing on some runner images.
       - name: Toolchain versions
+        continue-on-error: true
         run: |
           xcodebuild -version
           swift --version
-          xcrun --show-sdk-version
+          xcrun --sdk macosx --show-sdk-version
 
       - name: Build
         run: swift build
