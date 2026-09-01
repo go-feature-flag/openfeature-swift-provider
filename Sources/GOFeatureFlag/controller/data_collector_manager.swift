@@ -34,17 +34,21 @@ class DataCollectorManager {
     }
 
     func pushEvents() async {
-        self.queue.async(flags:.barrier) {
-            Task {
-                do {
-                    if !self.events.isEmpty {
-                        (_,_) = try await self.goffAPI.postDataCollector(events: self.events)
-                        self.events = []
-                    }
-                } catch {
-                    NSLog("data collector error: \(error)")
-                }
-            }
+        // Drain the buffer atomically before posting. Previously the barrier
+        // block spawned a detached Task and returned immediately, so the read
+        // of `events` and the `events = []` after the network call were not
+        // synchronised with appendFeatureEvent: any event recorded while a
+        // post was in flight was silently discarded.
+        let pending: [FeatureEvent] = self.queue.sync(flags: .barrier) {
+            let current = self.events
+            self.events = []
+            return current
+        }
+        guard !pending.isEmpty else { return }
+        do {
+            (_, _) = try await self.goffAPI.postDataCollector(events: pending)
+        } catch {
+            NSLog("data collector error: \(error)")
         }
     }
 
