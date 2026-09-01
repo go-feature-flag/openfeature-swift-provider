@@ -7,26 +7,52 @@ public class MockNetworkingService: NetworkingService {
     var mockData: Data?
     var mockStatus: Int
     var mockURLResponse: URLResponse?
-    var callCounter = 0
-    var dataCollectorCallCounter = 0
-    var dataCollectorEventCounter = 0
-    var requests: [URLRequest] = []
+
+    // The data collector flushes on a background timer, so these are written
+    // from a background task while tests read them from the test thread.
+    // Guard them with a lock rather than racing on bare vars.
+    private let lock = NSLock()
+    private var _callCounter = 0
+    private var _dataCollectorCallCounter = 0
+    private var _dataCollectorEventCounter = 0
+    private var _requests: [URLRequest] = []
+
+    var callCounter: Int { withLock { _callCounter } }
+    var dataCollectorCallCounter: Int { withLock { _dataCollectorCallCounter } }
+    var dataCollectorEventCounter: Int { withLock { _dataCollectorEventCounter } }
+    var requests: [URLRequest] { withLock { _requests } }
+
+    private func withLock<T>(_ body: () -> T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return body()
+    }
 
     public init(mockStatus: Int = 200) {
         self.mockStatus = mockStatus
     }
 
     public func doRequest(for request: URLRequest) async throws -> (Data, URLResponse) {
-        self.requests.append(request)
-        self.callCounter+=1
+        withLock {
+            _requests.append(request)
+            _callCounter += 1
+        }
         let isDataCollector = request.url?.absoluteString.contains("/v1/data/collector") ?? false
         let isBulkEvaluation = request.url?.absoluteString.contains("/ofrep/v1/evaluate/flags") ?? false
         if isDataCollector {
-            self.dataCollectorCallCounter+=1
             let requestBody = try JSONDecoder().decode(DataCollectorRequest.self, from: request.httpBody!)
-            if (requestBody.events != nil && requestBody.events!.count > 1){
-                self.dataCollectorEventCounter += requestBody.events!.count
-                let dataCollectorResponse = DataCollectorResponse(ingestedContentCount: requestBody.events!.count)
+            // Count every flush and every event it carries. Previously events
+            // were only counted when a batch held more than one, so a batch of
+            // exactly one was silently dropped from the total - which made the
+            // event counts depend on how the flush timer happened to split the
+            // batch.
+            let eventCount = requestBody.events?.count ?? 0
+            withLock {
+                _dataCollectorCallCounter += 1
+                _dataCollectorEventCounter += eventCount
+            }
+            if eventCount > 1 {
+                let dataCollectorResponse = DataCollectorResponse(ingestedContentCount: eventCount)
                 let responseBody = try JSONEncoder().encode(dataCollectorResponse)
                 let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
                 return (responseBody, response)

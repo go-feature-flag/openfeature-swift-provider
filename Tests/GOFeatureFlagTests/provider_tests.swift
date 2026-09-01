@@ -27,7 +27,6 @@ class GoFeatureFlagProviderTests: XCTestCase {
         
         
         let client = api.getClient()
-        let expectation = self.expectation(description: "Waiting for delay")
         _ = client.getBooleanDetails(key: "my-flag", defaultValue: false)
         _ = client.getBooleanDetails(key: "my-flag", defaultValue: false)
         _ = client.getIntegerDetails(key: "int-flag", defaultValue: 1)
@@ -35,10 +34,11 @@ class GoFeatureFlagProviderTests: XCTestCase {
         _ = client.getStringDetails(key: "string-flag", defaultValue: "default")
         _ = client.getObjectDetails(key: "object-flag", defaultValue: Value.null)
 
-        DispatchQueue.global().asyncAfter(deadline: .now() + 1.5) { expectation.fulfill() }
-        await fulfillment(of: [expectation], timeout: 3.0)
+        await waitForDataCollectorEvents(mockNetworkService, count: 6)
 
-        XCTAssertEqual(1, mockNetworkService.dataCollectorCallCounter)
+        // How many flushes it takes depends on where the 1s timer happens to
+        // split the batch, so assert on the event total, not the call count.
+        XCTAssertGreaterThanOrEqual(mockNetworkService.dataCollectorCallCounter, 1)
         XCTAssertEqual(6, mockNetworkService.dataCollectorEventCounter)
     }
     
@@ -64,12 +64,9 @@ class GoFeatureFlagProviderTests: XCTestCase {
         _ = client.getStringDetails(key: "string-flag", defaultValue: "default")
         _ = client.getObjectDetails(key: "object-flag", defaultValue: Value.null)
 
-        let expectation = self.expectation(description: "Waiting for delay")
+        await waitForDataCollectorEvents(mockNetworkService, count: 6)
 
-        DispatchQueue.global().asyncAfter(deadline: .now() + 2.0) { expectation.fulfill() }
-        await fulfillment(of: [expectation], timeout: 3.0)
-
-        XCTAssertEqual(1, mockNetworkService.dataCollectorCallCounter)
+        XCTAssertGreaterThanOrEqual(mockNetworkService.dataCollectorCallCounter, 1)
         XCTAssertEqual(6, mockNetworkService.dataCollectorEventCounter)
         
         do {
@@ -110,12 +107,9 @@ class GoFeatureFlagProviderTests: XCTestCase {
         _ = client.getStringDetails(key: "string-flag", defaultValue: "default")
         _ = client.getObjectDetails(key: "object-flag", defaultValue: Value.null)
 
-        let expectation = self.expectation(description: "Waiting for delay")
+        await waitForDataCollectorEvents(mockNetworkService, count: 6)
 
-        DispatchQueue.global().asyncAfter(deadline: .now() + 2.0) { expectation.fulfill() }
-        await fulfillment(of: [expectation], timeout: 3.0)
-
-        XCTAssertEqual(1, mockNetworkService.dataCollectorCallCounter)
+        XCTAssertGreaterThanOrEqual(mockNetworkService.dataCollectorCallCounter, 1)
         XCTAssertEqual(6, mockNetworkService.dataCollectorEventCounter)
         
         do {
@@ -149,22 +143,21 @@ class GoFeatureFlagProviderTests: XCTestCase {
         _ = client.getBooleanDetails(key: "my-flag", defaultValue: false)
         _ = client.getIntegerDetails(key: "int-flag", defaultValue: 1)
 
-        let expectation = self.expectation(description: "Waiting for delay")
-        DispatchQueue.global().asyncAfter(deadline: .now() + 4.0) { expectation.fulfill() }
-        await fulfillment(of: [expectation], timeout: 5.0)
+        await waitForDataCollectorEvents(mockNetworkService, count: 3)
 
-        XCTAssertEqual(1, mockNetworkService.dataCollectorCallCounter)
+        // Whether the 3 events land in one flush or two depends on where the
+        // timer boundary falls, so record the count and assert it grows.
+        let callsAfterFirstBatch = mockNetworkService.dataCollectorCallCounter
+        XCTAssertGreaterThanOrEqual(callsAfterFirstBatch, 1)
         XCTAssertEqual(3, mockNetworkService.dataCollectorEventCounter)
 
         _ = client.getDoubleDetails(key: "double-flag", defaultValue: 1.0)
         _ = client.getStringDetails(key: "string-flag", defaultValue: "default")
         _ = client.getObjectDetails(key: "object-flag", defaultValue: Value.null)
 
-        let expectation2 = self.expectation(description: "Waiting for delay")
-        DispatchQueue.global().asyncAfter(deadline: .now() + 4.0) { expectation2.fulfill() }
-        await fulfillment(of: [expectation2], timeout: 5.0)
+        await waitForDataCollectorEvents(mockNetworkService, count: 6)
 
-        XCTAssertEqual(2, mockNetworkService.dataCollectorCallCounter)
+        XCTAssertGreaterThan(mockNetworkService.dataCollectorCallCounter, callsAfterFirstBatch)
         XCTAssertEqual(6, mockNetworkService.dataCollectorEventCounter)
     }
 
@@ -186,22 +179,45 @@ class GoFeatureFlagProviderTests: XCTestCase {
         _ = client.getBooleanDetails(key: "my-flag-error", defaultValue: false)
         _ = client.getIntegerDetails(key: "int-flag-error", defaultValue: 1)
 
-        let expectation = self.expectation(description: "Waiting for delay")
-        DispatchQueue.global().asyncAfter(deadline: .now() + 3.0) { expectation.fulfill() }
-        await fulfillment(of: [expectation], timeout: 4.0)
+        await waitForDataCollectorEvents(mockNetworkService, count: 3)
 
-        XCTAssertEqual(1, mockNetworkService.dataCollectorCallCounter)
+        let callsAfterFirstBatch = mockNetworkService.dataCollectorCallCounter
+        XCTAssertGreaterThanOrEqual(callsAfterFirstBatch, 1)
         XCTAssertEqual(3, mockNetworkService.dataCollectorEventCounter)
 
         _ = client.getDoubleDetails(key: "double-flag-error", defaultValue: 1.0)
         _ = client.getStringDetails(key: "string-flag-error", defaultValue: "default")
         _ = client.getObjectDetails(key: "object-flag-error", defaultValue: Value.list([]))
 
-        let expectation2 = self.expectation(description: "Waiting for delay")
-        DispatchQueue.global().asyncAfter(deadline: .now() + 3.0) { expectation2.fulfill() }
-        await fulfillment(of: [expectation2], timeout: 4.0)
+        await waitForDataCollectorEvents(mockNetworkService, count: 6)
 
-        XCTAssertEqual(2, mockNetworkService.dataCollectorCallCounter)
+        XCTAssertGreaterThan(mockNetworkService.dataCollectorCallCounter, callsAfterFirstBatch)
         XCTAssertEqual(6, mockNetworkService.dataCollectorEventCounter)
+    }
+
+    /// Polls until the mock has recorded `count` data collector events, instead
+    /// of sleeping a fixed interval and hoping the flush already landed.
+    /// The events are recorded asynchronously by a background flush timer, so a
+    /// fixed wait made these tests fail intermittently on loaded CI runners.
+    private func waitForDataCollectorEvents(
+        _ mock: MockNetworkingService,
+        count: Int,
+        timeout: TimeInterval = 10.0,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if mock.dataCollectorEventCounter >= count {
+                return
+            }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        XCTFail(
+            "timed out after \(timeout)s waiting for \(count) data collector events, "
+            + "got \(mock.dataCollectorEventCounter)",
+            file: file,
+            line: line
+        )
     }
 }
