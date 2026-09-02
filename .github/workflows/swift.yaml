@@ -91,13 +91,21 @@ jobs:
           files: info.lcov
 
   build-ios:
-    name: iOS build (Xcode 26.0.1)
+    # Deliberately unpinned. Xcode 26 downloads its device platforms
+    # separately, and the runner image only installs them for the image's
+    # default Xcode. Pinning a non-default version (we pinned 26.0.1) gives
+    # runners where iOS/tvOS/watchOS/visionOS are all missing and only macOS
+    # destinations exist, so `generic/platform=iOS` fails to resolve.
+    # Version coverage is the build-test matrix's job; this is a compile check.
+    name: iOS build (default Xcode)
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: "26.0.1"
+      - name: Show available SDKs
+        continue-on-error: true
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks
       - name: Build for iOS
         run: |
           xcodebuild build \
