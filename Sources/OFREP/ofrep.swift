@@ -7,7 +7,11 @@ struct Metadata: ProviderMetadata {
     var name: String? = "OFREP provider"
 }
 
-public class OfrepProvider: FeatureProvider {
+/// The package stays in the Swift 5 language mode, matching the OpenFeature Swift SDK's own package
+/// (both are `swift-tools-version:5.5`), so data-race safety is not compiler-enforced; the shared
+/// mutable state is guarded at runtime by `stateLock` instead. `final` documents that the type is not
+/// meant to be subclassed and is the prerequisite for a future `Sendable` conformance.
+public final class OfrepProvider: FeatureProvider {
     private let statusTracker = ProviderStatusTracker()
     private var evaluationContext: OpenFeature.EvaluationContext?
 
