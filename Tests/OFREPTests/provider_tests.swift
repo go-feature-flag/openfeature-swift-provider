@@ -1368,6 +1368,19 @@ class ProviderTests: XCTestCase {
         return false
     }
 
+    /// Awaits a lifecycle `Future` (which resolves when the corresponding reconcile/initialise
+    /// Task finishes). `Future` replays its result to late subscribers, so this is race-free even
+    /// if the work has already completed.
+    private func awaitFuture(_ future: Future<Void, Never>) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            var cancellable: AnyCancellable?
+            cancellable = future.sink { _ in
+                withExtendedLifetime(cancellable) {}
+                continuation.resume()
+            }
+        }
+    }
+
     func testShouldRecoverToReadyWhenInitialisationFailsButPollingSucceeds() async {
         let options = OfrepProviderOptions(
             endpoint: "http://localhost:1031/",
@@ -1437,6 +1450,84 @@ class ProviderTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 400_000_000)
         XCTAssertEqual(callsAfterShutdown, mockService.callCounter,
                        "shutdown() must cancel the polling timer so no further requests are made")
+    }
+
+    func testSupersededReconcileDoesNotOverwriteTheCacheWhenItsFullResponseArrivesLate() async {
+        let mock = GatedNetworkingService(
+            gatedKey: "ctx-a",
+            gatedStatus: 200,
+            bodies: [
+                "init-ctx": GatedNetworkingService.body(myFlag: true),
+                "ctx-a": GatedNetworkingService.body(myFlag: true),  // superseded context's stale value
+                "ctx-b": GatedNetworkingService.body(myFlag: false), // winning context's value
+            ])
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/", pollInterval: 0, networkService: mock)
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(
+            provider: provider, initialContext: ImmutableContext(targetingKey: "init-ctx"))
+        XCTAssertEqual(ProviderStatus.ready, api.getProviderStatus())
+
+        // Start a context change whose fetch is gated (blocks), and wait until it is truly in flight.
+        let aFuture = provider.onContextSet(
+            oldContext: nil, newContext: ImmutableContext(targetingKey: "ctx-a"))
+        await mock.reached.wait()
+
+        // Supersede it with a second context change that completes immediately.
+        await awaitFuture(provider.onContextSet(
+            oldContext: nil, newContext: ImmutableContext(targetingKey: "ctx-b")))
+        let valueAfterB = try? provider.getBooleanEvaluation(key: "my-flag", defaultValue: true, context: nil)
+        XCTAssertEqual(valueAfterB?.value, false, "the winning context's flags should be cached")
+
+        // Now let the superseded (ctx-a) request return its full 200 response, late. Its post-response
+        // cancellation guard must stop it from overwriting the winning context's cache.
+        await mock.release.open()
+        await awaitFuture(aFuture)
+
+        let value = try? provider.getBooleanEvaluation(key: "my-flag", defaultValue: true, context: nil)
+        XCTAssertEqual(value?.value, false,
+                       "A superseded reconcile whose full response arrives late must not overwrite the cache")
+    }
+
+    func testSupersededReconcileWith429DoesNotInstallARetryWindow() async {
+        let mock = GatedNetworkingService(
+            gatedKey: "ctx-a",
+            gatedStatus: 429,
+            bodies: [
+                "init-ctx": GatedNetworkingService.body(myFlag: true),
+                "ctx-b": GatedNetworkingService.body(myFlag: false),
+                "ctx-c": GatedNetworkingService.body(myFlag: true),
+            ])
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/", pollInterval: 0, networkService: mock)
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(
+            provider: provider, initialContext: ImmutableContext(targetingKey: "init-ctx"))
+
+        // A context change whose fetch is gated and will end in a 429, held in flight.
+        let aFuture = provider.onContextSet(
+            oldContext: nil, newContext: ImmutableContext(targetingKey: "ctx-a"))
+        await mock.reached.wait()
+
+        // Supersede it with a context change that succeeds.
+        await awaitFuture(provider.onContextSet(
+            oldContext: nil, newContext: ImmutableContext(targetingKey: "ctx-b")))
+
+        // Release the superseded request: its full 429 arrives late but, being cancelled, must not
+        // install a Retry-After window.
+        await mock.release.open()
+        await awaitFuture(aFuture)
+
+        // Prove no window is active: a fresh context change must reach the API and be applied, rather
+        // than being short-circuited as rate-limited (which would leave the cache stale and go .stale).
+        await awaitFuture(provider.onContextSet(
+            oldContext: nil, newContext: ImmutableContext(targetingKey: "ctx-c")))
+        let value = try? provider.getBooleanEvaluation(key: "my-flag", defaultValue: false, context: nil)
+        XCTAssertEqual(value?.value, true,
+                       "A superseded 429 must not install a Retry-After window that blocks later context changes")
+        XCTAssertEqual(ProviderStatus.ready, api.getProviderStatus())
     }
 
     /// Hammers the synchronous flag reads from many OS threads while the polling timer and repeated
@@ -1541,4 +1632,70 @@ final class StressNetworkingService: NetworkingService {
       {"value":"1234value","key":"string-flag","reason":"STATIC","variant":"variantA"}
     ]}
     """
+}
+
+/// A one-shot gate built on a continuation. Unlike `Task.sleep`, awaiting it is NOT cancellation-aware,
+/// so a cancelled reconcile still receives its full response — which is exactly what makes the tests
+/// reach the *post-response* cancellation guards in `evaluateFlags` (a `Task.sleep`-based mock throws
+/// during the await instead, so those guards never run).
+actor Gate {
+    private var continuations: [CheckedContinuation<Void, Never>] = []
+    private var isOpen = false
+
+    func wait() async {
+        if isOpen { return }
+        await withCheckedContinuation { continuations.append($0) }
+    }
+
+    func open() {
+        guard !isOpen else { return }
+        isOpen = true
+        let pending = continuations
+        continuations = []
+        pending.forEach { $0.resume() }
+    }
+}
+
+/// Networking stub that blocks the request for one targeting key until the test opens `release`,
+/// after signalling `reached` so the test knows the request is in flight. Every request returns a
+/// full response whose body is chosen by targeting key, so the initial, superseded and winning
+/// contexts can be given distinct flag values.
+final class GatedNetworkingService: NetworkingService {
+    let reached = Gate()
+    let release = Gate()
+    private let gatedKey: String
+    private let gatedStatus: Int
+    private let bodies: [String: String]
+
+    init(gatedKey: String, gatedStatus: Int, bodies: [String: String]) {
+        self.gatedKey = gatedKey
+        self.gatedStatus = gatedStatus
+        self.bodies = bodies
+    }
+
+    static func body(myFlag value: Bool) -> String {
+        return "{\"flags\":[{\"value\":\(value),\"key\":\"my-flag\",\"reason\":\"STATIC\",\"variant\":\"v\"}]}"
+    }
+
+    func doRequest(for request: URLRequest) async throws -> (Data, URLResponse) {
+        let json = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: Any]
+        let targetingKey = (json["context"] as! [String: Any])["targetingKey"] as! String
+        let body = bodies[targetingKey] ?? GatedNetworkingService.body(myFlag: true)
+
+        if targetingKey == gatedKey {
+            await reached.open()
+            await release.wait()
+            let headers: [String: String] = gatedStatus == 429
+                ? ["Retry-After": "120"]
+                : ["ETag": "gated-\(targetingKey)"]
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: gatedStatus, httpVersion: nil, headerFields: headers)!
+            return (body.data(using: .utf8)!, response)
+        }
+
+        let response = HTTPURLResponse(
+            url: request.url!, statusCode: 200, httpVersion: nil,
+            headerFields: ["ETag": "etag-\(targetingKey)"])!
+        return (body.data(using: .utf8)!, response)
+    }
 }
