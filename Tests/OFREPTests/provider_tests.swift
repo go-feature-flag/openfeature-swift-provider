@@ -1413,6 +1413,32 @@ class ProviderTests: XCTestCase {
                        "A superseded initialize must not overwrite the new context's cached flags")
     }
 
+    func testShutdownStopsPolling() async {
+        let mockService = MockNetworkingService(mockStatus: 200)
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0.05, // poll frequently so we can observe it keep running, then stop
+            networkService: mockService)
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(
+            provider: provider, initialContext: ImmutableContext(targetingKey: "shutdown-test"))
+
+        // Let a handful of polls run so we know the timer is active.
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertGreaterThan(mockService.callCounter, 1, "polling should have issued several requests")
+
+        provider.shutdown()
+        // Let any in-flight poll settle before sampling the counter.
+        try? await Task.sleep(nanoseconds: 150_000_000)
+        let callsAfterShutdown = mockService.callCounter
+
+        // Several more poll intervals: with the timer cancelled, none of them should reach the API.
+        try? await Task.sleep(nanoseconds: 400_000_000)
+        XCTAssertEqual(callsAfterShutdown, mockService.callCounter,
+                       "shutdown() must cancel the polling timer so no further requests are made")
+    }
+
     /// Hammers the synchronous flag reads from many OS threads while the polling timer and repeated
     /// context changes rewrite the shared cache and evaluation context concurrently. Meant to run
     /// under ThreadSanitizer (`swift test --sanitize=thread`): without the provider's state lock the

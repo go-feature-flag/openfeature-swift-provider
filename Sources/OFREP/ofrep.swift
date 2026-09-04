@@ -47,6 +47,28 @@ public class OfrepProvider: FeatureProvider {
         self.ofrepAPI = OfrepAPI(networkingService: networkService, options: self.options)
     }
 
+    /// Stops the background polling and cancels any in-flight lifecycle work. The 0.6.0 SDK exposes
+    /// no teardown hook, so without this a resumed `DispatchSourceTimer` keeps polling the API until
+    /// the provider is deallocated. Call it when the provider is no longer used; it is idempotent and
+    /// is also invoked from `deinit`.
+    public func shutdown() {
+        self.stopBackgroundWork()
+    }
+
+    deinit {
+        // `deinit` calls a private helper rather than the overridable `shutdown()`.
+        self.stopBackgroundWork()
+    }
+
+    private func stopBackgroundWork() {
+        self.timer?.cancel()
+        self.timer = nil
+        self.reconcileTask?.cancel()
+        self.reconcileTask = nil
+        self.initTask?.cancel()
+        self.initTask = nil
+    }
+
     public var hooks: [any Hook] = []
     public var metadata: ProviderMetadata = Metadata()
 
