@@ -50,7 +50,11 @@ class GoFeatureFlagAPI {
             }
         }
         if let apiKey = self.options.apiKey {
+            // Authorization is the legacy header used for authentication against the relayproxy
+            // We are now using X-API-Key as the main header to forward API Keys.
+            // We keep Authorization only for background compatibility.
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField:"Authorization")
+            request.setValue(apiKey, forHTTPHeaderField:"X-API-Key")
         }
 
         let (data, response) = try await networkingService.doRequest(for: request)

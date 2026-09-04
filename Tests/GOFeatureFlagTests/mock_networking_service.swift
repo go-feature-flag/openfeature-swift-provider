@@ -58,8 +58,8 @@ public class MockNetworkingService: NetworkingService {
                 return (responseBody, response)
             }
 
-            if request.allHTTPHeaderFields?["Authorization"] != nil {
-                if request.allHTTPHeaderFields?["Authorization"] == "Bearer apiKey1" {
+            if request.allHTTPHeaderFields?["Authorization"] != nil || request.allHTTPHeaderFields?["X-API-Key"] != nil{
+                if request.allHTTPHeaderFields?["Authorization"] == "Bearer apiKey1" ||  request.allHTTPHeaderFields?["X-API-Key"] == "apiKey1"{
                     let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
                     return (validResponse.data(using: .utf8)!, response)
                 }

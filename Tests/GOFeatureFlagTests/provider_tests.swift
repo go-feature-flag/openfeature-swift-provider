@@ -222,6 +222,7 @@ class GoFeatureFlagProviderTests: XCTestCase {
 
         XCTAssertEqual("custom-value", request.allHTTPHeaderFields?["X-Custom-Header"])
         XCTAssertEqual("Bearer apiKey1", request.allHTTPHeaderFields?["Authorization"])
+        XCTAssertEqual("apiKey1", request.allHTTPHeaderFields?["X-API-Key"])
     }
   
     /// Polls until the mock has recorded `count` data collector events, instead
