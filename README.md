@@ -25,7 +25,7 @@ For documentation related to flags management in GO Feature Flag, refer to the [
 
 In the dependencies section of `Package.swift` add:
 ```swift
-.package(url: "https://github.com/go-feature-flag/openfeature-swift-provider.git", from: "0.3.0")
+.package(url: "https://github.com/go-feature-flag/openfeature-swift-provider.git", from: "0.5.0")
 ```
 
 and in the target dependencies section add:
@@ -63,7 +63,7 @@ import OpenFeature
 let options = GoFeatureFlagProviderOptions(endpoint: "https://your_domain.io")
 let provider = GoFeatureFlagProvider(options: options)
 
-let evaluationContext = MutableContext(targetingKey: "myTargetingKey", structure: MutableStructure())
+let evaluationContext = ImmutableContext(targetingKey: "myTargetingKey", structure: ImmutableStructure())
 OpenFeatureAPI.shared.setProvider(provider: provider, initialContext: evaluationContext)
 ```
 
@@ -84,7 +84,7 @@ await OpenFeatureAPI.shared.setProviderAndWait(provider: provider)
 During the usage of your application it may appears that the `EvaluationContext` should be updated. For example if a not logged in user, authentify himself you will probably have to update the evaluation context.
 
 ```swift
-let ctx = MutableContext(targetingKey: "myNewTargetingKey", structure: MutableStructure())
+let ctx = ImmutableContext(targetingKey: "myNewTargetingKey", structure: ImmutableStructure())
 OpenFeatureAPI.shared.setEvaluationContext(evaluationContext: ctx)
 ```
 
