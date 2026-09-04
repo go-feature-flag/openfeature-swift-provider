@@ -22,7 +22,11 @@ public final class GoFeatureFlagProvider: FeatureProvider {
 
         var headers: [String:String] = options.customHeaders ?? [:]
         if let apiKey = options.apiKey {
+            // Authorization is the legacy header used for authentication against the relayproxy
+            // We are now using X-API-Key as the main header to forward API Keys.
+            // We keep Authorization only for background compatibility.
             headers["Authorization"] = "Bearer \(apiKey)"
+            headers["X-API-Key"] = apiKey
         }
         let ofrepOptions = OfrepProviderOptions(
             endpoint: options.endpoint,
