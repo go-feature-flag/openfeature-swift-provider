@@ -11,7 +11,8 @@ This repository contains the official Swift OpenFeature provider for accessing y
 In conjuction with the [OpenFeature SDK](https://openfeature.dev/docs/reference/concepts/provider) you will be able to evaluate your feature flags in your **iOS**/**tvOS**/**watchOS**/**macOS** applications.
 
 > [!IMPORTANT]
-> Starting with `0.6.0` this provider requires **iOS 15+**, **tvOS 15+**, **watchOS 8+** and **macOS 12+**, following the minimum platforms of the OpenFeature Swift SDK `0.6.0`.
+> Starting with `0.6.0` this provider requires **Swift 6.1+**, **iOS 15+**, **tvOS 15+**, **watchOS 8+** and **macOS 12+**.
+> The OpenFeature Swift SDK `0.6.0` uses trailing commas in parameter lists (SE-0430), which need Swift 6.1 / Xcode 16.3+.
 
 For documentation related to flags management in GO Feature Flag, refer to the [GO Feature Flag documentation website](https://gofeatureflag.org/docs).
 

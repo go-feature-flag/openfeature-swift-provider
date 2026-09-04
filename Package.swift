@@ -24,7 +24,7 @@ let package = Package(
         // Kept deliberately permissive so apps can pick the swift-log their toolchain
         // supports. Package.resolved pins 1.6.3 on purpose: it is the last release whose
         // manifest builds with Swift 5.9+, and newer ones require Swift 6.2 tools, which
-        // the Swift 6.0 and 6.1 CI jobs cannot load. Do not bump the pin without checking.
+        // the Swift 6.1 CI job cannot load. Do not bump the pin without checking.
         .package(url: "https://github.com/apple/swift-log", from: "1.0.0"),
     ],
     targets: [
