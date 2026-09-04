@@ -21,6 +21,18 @@ public class OfrepProvider: FeatureProvider {
     /// context change can cancel it before starting its own.
     private var reconcileTask: Task<Void, Never>?
 
+    /// Serializes access to the mutable state shared between the synchronous evaluation calls
+    /// (`getXxxEvaluation`, invoked on the caller's thread) and the background work that refreshes it
+    /// (the `initialize`/`onContextSet` Tasks and the polling timer, which run on unrelated threads).
+    /// `NSLock.withLock` requires macOS 13+, so we keep a small helper to preserve the macOS 12 floor.
+    private let stateLock = NSLock()
+
+    private func withStateLock<T>(_ body: () throws -> T) rethrows -> T {
+        self.stateLock.lock()
+        defer { self.stateLock.unlock() }
+        return try body()
+    }
+
     public init(options: OfrepProviderOptions) {
         self.options = options
         var networkService: NetworkingService = URLSession.shared
@@ -44,11 +56,11 @@ public class OfrepProvider: FeatureProvider {
     }
 
     public func initialize(initialContext: (any OpenFeature.EvaluationContext)?) -> Future<Void, Never> {
-        self.evaluationContext = initialContext
+        self.withStateLock { self.evaluationContext = initialContext }
         return Future { promise in
             Task {
                 do {
-                    let status = try await self.evaluateFlags(context: self.evaluationContext)
+                    let status = try await self.evaluateFlags(context: self.withStateLock { self.evaluationContext })
                     if self.options.pollInterval > 0 {
                         self.startPolling(pollInterval: self.options.pollInterval)
                     }
@@ -75,7 +87,7 @@ public class OfrepProvider: FeatureProvider {
         // one is still in flight. Drop the superseded work: without this its response could
         // land last and leave the cache holding the flags of the context we just left.
         self.reconcileTask?.cancel()
-        self.evaluationContext = newContext
+        self.withStateLock { self.evaluationContext = newContext }
         self.statusTracker.send(.reconciling(nil))
         return Future { promise in
             self.reconcileTask = Task {
@@ -168,10 +180,12 @@ public class OfrepProvider: FeatureProvider {
 
     /// True while the `Retry-After` window installed by a previous 429 is still open.
     private var isWithinRetryWindow: Bool {
-        guard let retryAfter = self.apiRetryAfter else {
-            return false
+        return self.withStateLock {
+            guard let retryAfter = self.apiRetryAfter else {
+                return false
+            }
+            return retryAfter > Date()
         }
-        return retryAfter > Date()
     }
 
     private func evaluateFlags(context: EvaluationContext?) async throws -> BulkEvaluationStatus {
@@ -190,7 +204,8 @@ public class OfrepProvider: FeatureProvider {
             // winning call return `.rateLimited` with the wrong context's flags.
             try Task.checkCancellation()
             if case .apiTooManyRequestsError(let response) = error {
-                self.apiRetryAfter = self.getRetryAfterDate(from: response.allHeaderFields)
+                let retryAfter = self.getRetryAfterDate(from: response.allHeaderFields)
+                self.withStateLock { self.apiRetryAfter = retryAfter }
             }
             throw error
         }
@@ -211,7 +226,7 @@ public class OfrepProvider: FeatureProvider {
         // The response of a reconciliation that `onContextSet` has cancelled must not
         // overwrite the cache filled by the context change that replaced it.
         try Task.checkCancellation()
-        self.inMemoryCache = refreshedCache
+        self.withStateLock { self.inMemoryCache = refreshedCache }
         return BulkEvaluationStatus.successWithChanges
     }
 
@@ -242,7 +257,8 @@ public class OfrepProvider: FeatureProvider {
             guard let weakSelf = self else { return }
             Task {
                 do {
-                    let status = try await weakSelf.evaluateFlags(context: weakSelf.evaluationContext)
+                    let status = try await weakSelf.evaluateFlags(
+                        context: weakSelf.withStateLock { weakSelf.evaluationContext })
                     if status != .rateLimited && weakSelf.status == .stale {
                         // We reached the API again, so the cache is up to date. `.ready` has to
                         // be emitted explicitly: the tracker maps `.configurationChanged` to no
@@ -400,7 +416,7 @@ extension OfrepProvider {
     }
 
     private func genericEvaluation(key: String, logger: Logger?) throws -> OfrepEvaluationResponseFlag {
-        guard let flagCached = self.inMemoryCache[key] else {
+        guard let flagCached = self.withStateLock({ self.inMemoryCache[key] }) else {
             self.resolveLogger(logger).debug("no flag found in cache for the key \(key)")
             throw OpenFeatureError.flagNotFoundError(key: key)
         }

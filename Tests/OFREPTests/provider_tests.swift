@@ -1319,6 +1319,49 @@ class ProviderTests: XCTestCase {
         return false
     }
 
+    /// Hammers the synchronous flag reads from many OS threads while the polling timer and repeated
+    /// context changes rewrite the shared cache and evaluation context concurrently. Meant to run
+    /// under ThreadSanitizer (`swift test --sanitize=thread`): without the provider's state lock the
+    /// unsynchronized `inMemoryCache` / `evaluationContext` accesses race and TSan aborts the test
+    /// (the unguarded version can also crash intermittently on its own).
+    func testConcurrentEvaluationAndBackgroundRefreshIsRaceFree() async {
+        let provider = OfrepProvider(options: OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0.01, // fire the polling timer constantly so it keeps rewriting the cache
+            networkService: StressNetworkingService()))
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(
+            provider: provider, initialContext: ImmutableContext(targetingKey: "stress-0"))
+
+        // Rewrite the evaluation context (which also triggers a reconcile that rewrites the cache)
+        // on a background task, so the context read on the polling thread races the writes below.
+        let contextChurn = Task {
+            for iteration in 0..<150 {
+                if Task.isCancelled { break }
+                _ = provider.onContextSet(
+                    oldContext: nil,
+                    newContext: ImmutableContext(targetingKey: "stress-\(iteration)"))
+                try? await Task.sleep(nanoseconds: 1_000_000) // 1ms between context changes
+            }
+        }
+
+        // Many OS threads reading the cache at once, concurrent with the timer/reconcile writes.
+        DispatchQueue.concurrentPerform(iterations: 8) { _ in
+            for _ in 0..<2_000 {
+                _ = try? provider.getBooleanEvaluation(key: "my-flag", defaultValue: false, context: nil)
+                _ = try? provider.getStringEvaluation(key: "string-flag", defaultValue: "", context: nil)
+            }
+        }
+
+        contextChurn.cancel()
+        // Let the last in-flight reconcile / poll settle before the provider is torn down.
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        // The provider is still usable and consistent after the concurrent storm.
+        let evaluation = try? provider.getBooleanEvaluation(key: "my-flag", defaultValue: false, context: nil)
+        XCTAssertEqual(evaluation?.value, true)
+    }
+
 }
 
 /// Collects the messages it receives, so that a test can assert on which logger the provider used.
@@ -1358,4 +1401,24 @@ struct CapturingLogHandler: LogHandler {
              source: String, file: String, function: String, line: UInt) {
         store.append("\(message)")
     }
+}
+
+/// A minimal networking stub for the concurrency stress test: every call returns a fresh 200 with a
+/// brand-new ETag so every poll and reconcile writes the cache. It holds no shared mutable state
+/// (the ETag is a fresh `UUID` per call), so overlapping requests add no ThreadSanitizer report of
+/// the stub's own making.
+final class StressNetworkingService: NetworkingService {
+    func doRequest(for request: URLRequest) async throws -> (Data, URLResponse) {
+        let response = HTTPURLResponse(
+            url: request.url!, statusCode: 200, httpVersion: nil,
+            headerFields: ["ETag": UUID().uuidString])!
+        return (Self.body.data(using: .utf8)!, response)
+    }
+
+    private static let body = """
+    {"flags":[
+      {"value":true,"key":"my-flag","reason":"STATIC","variant":"variantA"},
+      {"value":"1234value","key":"string-flag","reason":"STATIC","variant":"variantA"}
+    ]}
+    """
 }
