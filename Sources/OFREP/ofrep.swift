@@ -21,6 +21,11 @@ public class OfrepProvider: FeatureProvider {
     /// context change can cancel it before starting its own.
     private var reconcileTask: Task<Void, Never>?
 
+    /// The initial evaluation started by `initialize`, kept so that a context change arriving before
+    /// it finishes can cancel it — otherwise its response could land last and overwrite the new
+    /// context's flags while the provider reports ready for the new context.
+    private var initTask: Task<Void, Never>?
+
     /// Serializes access to the mutable state shared between the synchronous evaluation calls
     /// (`getXxxEvaluation`, invoked on the caller's thread) and the background work that refreshes it
     /// (the `initialize`/`onContextSet` Tasks and the polling timer, which run on unrelated threads).
@@ -58,14 +63,17 @@ public class OfrepProvider: FeatureProvider {
     public func initialize(initialContext: (any OpenFeature.EvaluationContext)?) -> Future<Void, Never> {
         self.withStateLock { self.evaluationContext = initialContext }
         return Future { promise in
-            Task {
+            self.initTask = Task {
                 do {
-                    let status = try await self.evaluateFlags(context: self.withStateLock { self.evaluationContext })
+                    let status = try await self.evaluateFlags(context: initialContext)
                     guard status == .successWithChanges else {
                         throw OpenFeatureError.generalError(
                             message: "impossible to initialize the provider, receive unknown status")
                     }
                     self.statusTracker.send(.ready(nil))
+                } catch is CancellationError {
+                    // A context change arrived before initialize finished and superseded it; that
+                    // context change owns the terminal event, so this initialize must stay silent.
                 } catch {
                     self.statusTracker.send(OfrepProvider.errorEvent(from: error))
                 }
@@ -90,6 +98,9 @@ public class OfrepProvider: FeatureProvider {
         // one is still in flight. Drop the superseded work: without this its response could
         // land last and leave the cache holding the flags of the context we just left.
         self.reconcileTask?.cancel()
+        // Also supersede an initialize still in flight: without this, its response could land last
+        // and overwrite the cache with the previous context's flags while we report ready here.
+        self.initTask?.cancel()
         self.withStateLock { self.evaluationContext = newContext }
         self.statusTracker.send(.reconciling(nil))
         return Future { promise in

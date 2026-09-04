@@ -1357,6 +1357,30 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(evaluation?.value, true)
     }
 
+    func testShouldNotLetASlowInitializeOverwriteASupersedingContextChange() async {
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0, // isolate the init-vs-context race; no polling to also write the cache
+            networkService: MockNetworkingService(mockStatus: 200))
+        let provider = OfrepProvider(options: options)
+
+        // Kick off a slow initialisation, then immediately supersede it with a context change whose
+        // fetch is instant. Since 0.6.0 the SDK does not wait for initialize's Future before
+        // dispatching onContextSet, so this is the real ordering.
+        _ = provider.initialize(initialContext: ImmutableContext(targetingKey: "slow-context"))
+        _ = provider.onContextSet(
+            oldContext: nil, newContext: ImmutableContext(targetingKey: "second-context"))
+
+        // Wait past the slow init fetch (500ms) so, unguarded, its response would have landed last.
+        try? await Task.sleep(nanoseconds: 900_000_000)
+
+        // The superseding context's flags must win: a cancelled initialize must not overwrite them.
+        // "slow-context" resolves my-flag=true, "second-context" resolves my-flag=false.
+        let evaluation = try? provider.getBooleanEvaluation(key: "my-flag", defaultValue: true, context: nil)
+        XCTAssertEqual(evaluation?.value, false,
+                       "A superseded initialize must not overwrite the new context's cached flags")
+    }
+
     /// Hammers the synchronous flag reads from many OS threads while the polling timer and repeated
     /// context changes rewrite the shared cache and evaluation context concurrently. Meant to run
     /// under ThreadSanitizer (`swift test --sanitize=thread`): without the provider's state lock the
