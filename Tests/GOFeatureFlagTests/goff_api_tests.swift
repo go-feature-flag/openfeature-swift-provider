@@ -203,4 +203,29 @@ class GoffApiTests: XCTestCase {
             XCTFail("Expected GoFeatureFlagError.noEventToSend but got a different error: \(error).")
         }
     }
+
+    func testShouldSendCustomHeaders() async throws{
+        let mockService = MockNetworkingService(mockStatus: 200)
+        let options = GoFeatureFlagProviderOptions(
+            endpoint: "http://localhost:1031/",
+            customHeaders: ["X-Custom-Header": "custom-value"]
+        )
+        let goffAPI = GoFeatureFlagAPI(networkingService: mockService, options: options)
+
+        let events: [FeatureEvent] = [
+            FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970),
+                         key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE")
+        ]
+
+        do {
+            _ = try await goffAPI.postDataCollector(events: events)
+            guard let request = mockService.requests.last else {
+                XCTFail("No request captured")
+                return
+            }
+            XCTAssertEqual("custom-value", request.allHTTPHeaderFields?["X-Custom-Header"])
+        } catch {
+            XCTFail("exception thrown when doing the evaluation: \(error)")
+        }
+    }
 }

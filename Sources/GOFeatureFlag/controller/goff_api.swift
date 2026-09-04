@@ -9,7 +9,7 @@ class GoFeatureFlagAPI {
     init(networkingService: NetworkingService, options: GoFeatureFlagProviderOptions) {
         self.networkingService = networkingService
         self.options = options
-        
+
         if self.options.exporterMetadata == nil {
             self.options.exporterMetadata = [:]
         }
@@ -35,7 +35,7 @@ class GoFeatureFlagAPI {
         let dataCollectorURL = url.appendingPathComponent("v1/data/collector")
         var request = URLRequest(url: dataCollectorURL)
         request.httpMethod = "POST"
-        
+
         let requestBody = DataCollectorRequest(meta: self.options.exporterMetadata, events: events)
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
@@ -44,6 +44,11 @@ class GoFeatureFlagAPI {
             "application/json",
             forHTTPHeaderField: "Content-Type"
         )
+        if let headers = self.options.customHeaders {
+            for (key, value) in headers {
+                request.setValue(value, forHTTPHeaderField: key)
+            }
+        }
         if let apiKey = self.options.apiKey {
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField:"Authorization")
         }
@@ -53,6 +58,17 @@ class GoFeatureFlagAPI {
             throw GoFeatureFlagError.httpResponseCastError
         }
 
+        try validate(httpResponse: httpResponse)
+
+        do {
+            let response = try JSONDecoder().decode(DataCollectorResponse.self, from: data)
+            return (response, httpResponse)
+        } catch {
+            throw GoFeatureFlagError.unmarshallError(error: error)
+        }
+    }
+
+    private func validate(httpResponse: HTTPURLResponse) throws {
         if httpResponse.statusCode == 401 {
             throw GoFeatureFlagError.apiUnauthorizedError(response: httpResponse)
         }
@@ -61,13 +77,6 @@ class GoFeatureFlagAPI {
         }
         if httpResponse.statusCode >= 400 {
             throw GoFeatureFlagError.unexpectedResponseError(response: httpResponse)
-        }
-
-        do {
-            let response = try JSONDecoder().decode(DataCollectorResponse.self, from: data)
-            return (response, httpResponse)
-        } catch {
-            throw GoFeatureFlagError.unmarshallError(error: error)
         }
     }
 }
