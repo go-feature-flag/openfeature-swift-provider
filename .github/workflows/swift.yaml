@@ -27,13 +27,6 @@ jobs:
             os: macos-14
             xcode: "15.4"
             experimental: true
-          # OpenFeature Swift SDK 0.6.0 uses trailing commas in parameter lists
-          # (SE-0430), which need Swift 6.1+. Keep this job as an early signal
-          # until upstream drops those commas or raises its tools-version.
-          - name: "Swift 6.0 (Xcode 16.0) [legacy, non-blocking]"
-            os: macos-15
-            xcode: "16.0"
-            experimental: true
           # Oldest fully-supported toolchain - the real floor.
           - name: "Swift 6.1 (Xcode 16.4)"
             os: macos-15
@@ -47,7 +40,8 @@ jobs:
           # macos-latest ships. Non-blocking by design.
           - name: "Latest (default Xcode) [early warning, non-blocking]"
             os: macos-latest
-            experimental: true    steps:
+            experimental: true
+    steps:
       - uses: actions/checkout@v4
 
       # NOTE: do not use swift-actions/setup-swift here. On macOS it installs a
@@ -127,7 +121,7 @@ jobs:
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
-    needs: [ build-test, build-ios, lint ]
+    needs: [build-test, build-ios, lint]
     if: always()
     steps:
       - name: Fail if any required job failed
