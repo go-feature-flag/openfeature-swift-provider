@@ -46,7 +46,7 @@ class GoFeatureFlagAPI {
         )
         if let headers = self.options.customHeaders {
             for (key, value) in headers {
-                request.SetValue(value, forHTTPHeaderField: key)
+                request.setValue(value, forHTTPHeaderField: key)
             }
         }
         if let apiKey = self.options.apiKey {

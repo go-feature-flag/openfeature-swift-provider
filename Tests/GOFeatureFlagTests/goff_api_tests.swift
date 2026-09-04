@@ -206,9 +206,9 @@ class GoffApiTests: XCTestCase {
 
     func testShouldSendCustomHeaders() async throws{
         let mockService = MockNetworkingService(mockStatus: 200)
-        let options = GeFeatureFlagProviderOptions(
+        let options = GoFeatureFlagProviderOptions(
             endpoint: "http://localhost:1031/",
-            customHeaders: ["X-Custom-Headers": "custom-value"]
+            customHeaders: ["X-Custom-Header": "custom-value"]
         )
         let goffAPI = GoFeatureFlagAPI(networkingService: mockService, options: options)
 

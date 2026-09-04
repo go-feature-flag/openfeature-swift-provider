@@ -200,15 +200,15 @@ class GoFeatureFlagProviderTests: XCTestCase {
         let provider = GoFeatureFlagProvider(
             options: GoFeatureFlagProviderOptions(
                 endpoint: "https://localhost:1031",
-                apiKey: "apiKey1"
+                apiKey: "apiKey1",
                 customHeaders: [
                     "X-Custom-Header": "custom-value",
                     "Authorization": "Bearer custom" // should be overwritten by apiKey
-                ]
+                ],
                 networkService: mockNetworkService
             )
         )
-        let evaluationCtx = MutableContext(targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0")
+        let evaluationCtx = ImmutableContext(targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0")
         let api = OpenFeatureAPI()
         await api.setProviderAndWait(provider: provider, initialContext: evaluationCtx)
         let client = api.getClient()
