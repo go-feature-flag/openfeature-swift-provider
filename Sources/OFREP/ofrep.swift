@@ -218,7 +218,7 @@ public class OfrepProvider: FeatureProvider {
             // winning call return `.rateLimited` with the wrong context's flags.
             try Task.checkCancellation()
             if case .apiTooManyRequestsError(let response) = error {
-                let retryAfter = self.getRetryAfterDate(from: response.allHeaderFields)
+                let retryAfter = self.getRetryAfterDate(from: response)
                 self.withStateLock { self.apiRetryAfter = retryAfter }
             }
             throw error
@@ -244,9 +244,11 @@ public class OfrepProvider: FeatureProvider {
         return BulkEvaluationStatus.successWithChanges
     }
 
-    private func getRetryAfterDate(from headers: [AnyHashable: Any]) -> Date? {
-        // Retrieve the Retry-After value from headers
-        guard let retryAfterValue = headers["Retry-After"] as? String else {
+    private func getRetryAfterDate(from response: HTTPURLResponse) -> Date? {
+        // HTTP header names are case-insensitive; `value(forHTTPHeaderField:)` looks them up
+        // case-insensitively, unlike subscripting `allHeaderFields`, so a lowercase `retry-after`
+        // (common over HTTP/2) is still honoured.
+        guard let retryAfterValue = response.value(forHTTPHeaderField: "Retry-After") else {
             return nil
         }
 

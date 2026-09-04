@@ -1267,6 +1267,38 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(ProviderStatus.stale, api.getProviderStatus())
     }
 
+    func testShouldHonourARetryAfterHeaderSpelledInLowercase() async {
+        let mockService = MockNetworkingService(mockStatus: 200)
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 1,
+            networkService: mockService)
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+
+        var receivedEvents = [ProviderEvent]()
+        let stale = expectation(description: "Stale event")
+        api.observe().sink { event in
+            receivedEvents.append(event)
+            if receivedEvents.count == 2 {
+                stale.fulfill()
+            }
+        }.store(in: &cancellables)
+
+        await api.setProviderAndWait(
+            provider: provider,
+            initialContext: ImmutableContext(targetingKey: "429-lowercase-retry-after"))
+        await fulfillment(of: [stale], timeout: 10)
+        let callsWhenRateLimited = mockService.callCounter
+        // Let a couple of poll intervals pass: the provider must not call the API again.
+        try? await Task.sleep(nanoseconds: 2_500_000_000)
+
+        XCTAssertEqual([.ready(), .stale()], Array(receivedEvents.prefix(2)))
+        XCTAssertEqual(callsWhenRateLimited, mockService.callCounter,
+                       "A lowercase retry-after header must be honoured via a case-insensitive lookup.")
+        XCTAssertEqual(ProviderStatus.stale, api.getProviderStatus())
+    }
+
     func testShouldLogWhenPollingIsUnauthorized() async {
         let logs = CapturingLogHandler.Store()
         OpenFeatureAPI.shared.setLogger(CapturingLogHandler.logger(label: "test.polling", store: logs))

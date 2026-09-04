@@ -96,6 +96,22 @@ public class MockNetworkingService: NetworkingService {
             return (data, response)
         }
 
+        // Rate limits every call after the first one with the Retry-After header name spelled in
+        // lowercase, as it commonly arrives over HTTP/2. The provider must still honour the window,
+        // which requires a case-insensitive header lookup.
+        if targetingKey == "429-lowercase-retry-after" {
+            if callCounter == 1 {
+                let response = HTTPURLResponse(
+                    url: request.url!, statusCode: 200, httpVersion: nil,
+                    headerFields: ["ETag": "429-lowercase-retry-after"])!
+                return (data, response)
+            }
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 429, httpVersion: nil,
+                headerFields: ["retry-after": "120"])!
+            return (data, response)
+        }
+
         // Answers once, then rejects everything with a 401: used both for a context change and
         // for a poll that becomes unauthorized after the provider is initialised.
         if targetingKey == "401-after-first" {
