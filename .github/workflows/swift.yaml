@@ -19,15 +19,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Oldest toolchain we can still obtain. macos-14 is deprecated:
-          # brownouts start 2026-10-05, image retired 2026-11-02.
-          # DELETE THIS ENTRY BY NOVEMBER 2026.
-          # See https://github.com/actions/runner-images/issues/13518
-          - name: "Swift 5.10 (Xcode 15.4) [legacy, non-blocking]"
-            os: macos-14
-            xcode: "15.4"
-            experimental: true
-          # Oldest fully-supported toolchain - the real floor.
+          # Oldest supported toolchain and the real floor: OpenFeature Swift SDK
+          # 0.6.0 uses trailing commas in parameter lists (SE-0430), which need
+          # Swift 6.1 / Xcode 16.3+. Do not add older toolchains back.
           - name: "Swift 6.1 (Xcode 16.4)"
             os: macos-15
             xcode: "16.4"
