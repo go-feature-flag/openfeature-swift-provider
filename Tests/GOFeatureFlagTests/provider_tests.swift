@@ -269,6 +269,31 @@ class GoFeatureFlagProviderTests: XCTestCase {
             objectEval.value)
     }
 
+    func testShouldForwardTheEvaluationLoggerToTheOfrepProvider() async throws {
+        let logs = CapturingLogHandler.Store()
+        let logger = CapturingLogHandler.logger(label: "test.evaluation", store: logs)
+        let mockNetworkService = MockNetworkingService(mockStatus: 200)
+        let provider = GoFeatureFlagProvider(
+            options: GoFeatureFlagProviderOptions(
+                endpoint: "https://localhost:1031",
+                pollInterval: 0,
+                networkService: mockNetworkService
+            )
+        )
+        let evaluationCtx = ImmutableContext(targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0")
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: evaluationCtx)
+
+        // The 4-argument overload is what the SDK calls to pass the evaluation's logger; the GO Feature
+        // Flag provider must forward it to the OFREP provider that does the work and logs.
+        XCTAssertThrowsError(try provider.getBooleanEvaluation(
+            key: "does-not-exist", defaultValue: false, context: evaluationCtx, logger: logger))
+
+        XCTAssertTrue(logs.messages.contains("no flag found in cache for the key does-not-exist"),
+                      "GoFeatureFlagProvider must forward the evaluation logger to the OFREP provider, "
+                      + "got: \(logs.messages)")
+    }
+
     func testShouldForwardTheContextChangesAndTheEventsOfTheOfrepProvider() async {
         let mockNetworkService = MockNetworkingService(mockStatus: 200)
         let provider = GoFeatureFlagProvider(

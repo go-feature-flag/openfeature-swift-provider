@@ -1334,6 +1334,41 @@ class ProviderTests: XCTestCase {
                       "A poll rejected by the API itself should be logged, got: \(logs.messages)")
     }
 
+    func testShouldStayReadyAndKeepTheCacheWhenAPollFails() async {
+        let logs = CapturingLogHandler.Store()
+        OpenFeatureAPI.shared.setLogger(CapturingLogHandler.logger(label: "test.polling", store: logs))
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 1,
+            networkService: MockNetworkingService(mockStatus: 200))
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(
+            provider: provider, initialContext: ImmutableContext(targetingKey: "error-after-first"))
+        XCTAssertEqual(ProviderStatus.ready, api.getProviderStatus())
+
+        // Collect any event the failing polls might emit (the replayed .ready is filtered out).
+        var eventsAfterReady = [ProviderEvent]()
+        let cancellable = api.observe().sink { event in
+            if event == .ready() { return }
+            eventsAfterReady.append(event)
+        }
+
+        // Wait until at least one poll has failed and been logged.
+        let logged = await waitForLog(logs, containing: "error while polling the OFREP API")
+        XCTAssertTrue(logged, "the failing poll should have been logged, got: \(logs.messages)")
+        cancellable.cancel()
+
+        // A non-429 poll error must not change the status, drop the cache, or emit an event: the
+        // provider keeps serving the last-good configuration.
+        XCTAssertEqual(ProviderStatus.ready, provider.status,
+                       "a non-429 poll error must leave the provider ready")
+        let value = try? provider.getBooleanEvaluation(key: "bool-flag", defaultValue: false, context: nil)
+        XCTAssertEqual(value?.value, true, "the last-good cache must still serve flags after a poll error")
+        XCTAssertTrue(eventsAfterReady.isEmpty,
+                      "a non-429 poll error must not emit any event, got: \(eventsAfterReady)")
+    }
+
     /// Polls until `store` has recorded a message containing `needle`, instead of sleeping a
     /// fixed interval and hoping the background poll already ran.
     private func waitForLog(
