@@ -273,12 +273,12 @@ public class OfrepProvider: FeatureProvider {
                 do {
                     let status = try await weakSelf.evaluateFlags(context: weakSelf.evaluationContext)
                     if status == .successWithChanges {
-                        weakSelf.eventHandler.send(.configurationChanged)
+                        weakSelf.eventHandler.send(.configurationChanged())
                     }
                 } catch let error as OfrepError {
                     switch error {
                     case .apiTooManyRequestsError:
-                        weakSelf.eventHandler.send(.stale)
+                        weakSelf.eventHandler.send(.stale())
                         throw error
                     default:
                         throw error
