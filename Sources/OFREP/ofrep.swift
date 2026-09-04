@@ -13,7 +13,6 @@ public class OfrepProvider: FeatureProvider {
 
     private var options: OfrepProviderOptions
     private let ofrepAPI: OfrepAPI
-    private let logger: Logger
 
     private var inMemoryCache: [String: OfrepEvaluationResponseFlag] = [:]
     private var apiRetryAfter: Date?
@@ -28,7 +27,6 @@ public class OfrepProvider: FeatureProvider {
         if let netSer = self.options.networkService {
             networkService = netSer
         }
-        self.logger = self.options.logger ?? Logger(label: "dev.openfeature.ofrep")
         self.ofrepAPI = OfrepAPI(networkingService: networkService, options: self.options)
     }
 
@@ -259,10 +257,10 @@ public class OfrepProvider: FeatureProvider {
                     case .apiTooManyRequestsError:
                         weakSelf.statusTracker.send(.stale())
                     default:
-                        weakSelf.logger.error("error while polling the OFREP API: \(error)")
+                        providerLogger.error("error while polling the OFREP API: \(error)")
                     }
                 } catch {
-                    weakSelf.logger.error("error while polling the OFREP API: \(error)")
+                    providerLogger.error("error while polling the OFREP API: \(error)")
                 }
             }
         }
@@ -395,10 +393,10 @@ extension OfrepProvider {
             message: "impossible to evaluate the flag because it is not a list or a dictionnary")
     }
 
-    /// Returns the logger provided by the SDK for this evaluation, falling back to
-    /// the one the provider was configured with.
+    /// Returns the logger provided by the SDK for this evaluation, falling back to the one the
+    /// SDK was configured with globally.
     private func resolveLogger(_ logger: Logger?) -> Logger {
-        return logger ?? self.logger
+        return logger ?? providerLogger
     }
 
     private func genericEvaluation(key: String, logger: Logger?) throws -> OfrepEvaluationResponseFlag {

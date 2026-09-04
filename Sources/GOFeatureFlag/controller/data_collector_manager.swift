@@ -1,7 +1,6 @@
 import Foundation
 import OpenFeature
 import Combine
-import Logging
 
 class DataCollectorManager {
     var events: [FeatureEvent] = []
@@ -9,13 +8,11 @@ class DataCollectorManager {
     let queue = DispatchQueue(label: "org.gofeatureflag.feature.events", attributes: .concurrent)
     let goffAPI: GoFeatureFlagAPI
     let options: GoFeatureFlagProviderOptions
-    let logger: Logger
     private var timer: DispatchSourceTimer?
 
-    init(goffAPI: GoFeatureFlagAPI, options: GoFeatureFlagProviderOptions, logger: Logger) {
+    init(goffAPI: GoFeatureFlagAPI, options: GoFeatureFlagProviderOptions) {
         self.goffAPI = goffAPI
         self.options = options
-        self.logger = logger
     }
 
     func start() {
@@ -51,7 +48,7 @@ class DataCollectorManager {
         do {
             (_, _) = try await self.goffAPI.postDataCollector(events: pending)
         } catch {
-            self.logger.error("data collector error: \(error)")
+            providerLogger.error("data collector error: \(error)")
         }
     }
 

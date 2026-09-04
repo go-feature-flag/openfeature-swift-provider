@@ -14,7 +14,6 @@ public final class GoFeatureFlagProvider: FeatureProvider {
     private let ofrepProvider: OfrepProvider
     private let dataCollectorMngr: DataCollectorManager
     private let options: GoFeatureFlagProviderOptions
-    private let logger: Logger
 
     public init(options: GoFeatureFlagProviderOptions) {
         var networkService: NetworkingService = URLSession.shared
@@ -30,21 +29,17 @@ public final class GoFeatureFlagProvider: FeatureProvider {
             headers["Authorization"] = "Bearer \(apiKey)"
             headers["X-API-Key"] = apiKey
         }
-        let logger = options.logger ?? Logger(label: "org.gofeatureflag.provider")
         let ofrepOptions = OfrepProviderOptions(
             endpoint: options.endpoint,
             pollInterval: options.pollInterval,
             headers: headers,
-            networkService: networkService,
-            logger: logger
+            networkService: networkService
         )
         self.options = options
-        self.logger = logger
         self.ofrepProvider = OfrepProvider(options: ofrepOptions)
         self.dataCollectorMngr = DataCollectorManager(
             goffAPI: GoFeatureFlagAPI(networkingService: networkService, options: options),
-            options: options,
-            logger: logger
+            options: options
         )
     }
 
@@ -62,15 +57,15 @@ public final class GoFeatureFlagProvider: FeatureProvider {
                     withExtendedLifetime(cancellable) {}
                     if self.options.dataCollectorInterval > 0 {
                         self.hooks.append(
-                            BooleanHook(dataCollectorMngr: self.dataCollectorMngr, logger: self.logger))
+                            BooleanHook(dataCollectorMngr: self.dataCollectorMngr))
                         self.hooks.append(
-                            DoubleHook(dataCollectorMngr: self.dataCollectorMngr, logger: self.logger))
+                            DoubleHook(dataCollectorMngr: self.dataCollectorMngr))
                         self.hooks.append(
-                            IntegerHook(dataCollectorMngr: self.dataCollectorMngr, logger: self.logger))
+                            IntegerHook(dataCollectorMngr: self.dataCollectorMngr))
                         self.hooks.append(
-                            StringHook(dataCollectorMngr: self.dataCollectorMngr, logger: self.logger))
+                            StringHook(dataCollectorMngr: self.dataCollectorMngr))
                         self.hooks.append(
-                            ObjectHook(dataCollectorMngr: self.dataCollectorMngr, logger: self.logger))
+                            ObjectHook(dataCollectorMngr: self.dataCollectorMngr))
                         self.dataCollectorMngr.start()
                     }
                     promise(.success(()))

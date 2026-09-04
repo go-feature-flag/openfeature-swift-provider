@@ -1,16 +1,13 @@
 import Foundation
 import OpenFeature
 import OFREP
-import Logging
 
 class StringHook: Hook {
     typealias HookValue = String
     let dataCollectorMngr: DataCollectorManager
-    let logger: Logger
 
-    init(dataCollectorMngr: DataCollectorManager, logger: Logger) {
+    init(dataCollectorMngr: DataCollectorManager) {
         self.dataCollectorMngr = dataCollectorMngr
-        self.logger = logger
     }
 
     func before<HookValue>(ctx: HookContext<HookValue>, hints: [String: Any]) {
@@ -25,7 +22,7 @@ class StringHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let value = details.value as? String else {
-            self.logger.warning("Default value is not of type String")
+            providerLogger.warning("Default value is not of type String")
             return
         }
 
@@ -51,7 +48,7 @@ class StringHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let value = ctx.defaultValue as? String else {
-            self.logger.warning("Default value is not of type String")
+            providerLogger.warning("Default value is not of type String")
             return
         }
 

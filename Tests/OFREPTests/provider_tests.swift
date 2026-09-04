@@ -28,6 +28,8 @@ class ProviderTests: XCTestCase {
     override func tearDown() {
         cancellables = []
         defaultEvaluationContext = nil
+        // OpenFeatureAPI.shared is global state, do not leak a logger to the other tests.
+        OpenFeatureAPI.shared.setLogger(nil)
         super.tearDown()
     }
 
@@ -102,8 +104,6 @@ class ProviderTests: XCTestCase {
         )
         let provider = OfrepProvider(options: options)
 
-        // Since 0.6.0 initialize() no longer throws: the failure is reported as an
-        // error event, and the provider moves to the error status.
         let expectation = XCTestExpectation(description: "waiting for the error event")
         var receivedEvents = [ProviderEvent]()
         let cancellable = provider.observe().sink { event in
@@ -996,13 +996,13 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(ProviderStatus.stale, api.getProviderStatus())
     }
 
-    func testShouldUseTheLoggerFromTheOptionsWhenTheSDKProvidesNone() async {
-        let optionsLogs = CapturingLogHandler.Store()
+    func testShouldFallBackOnTheGlobalSDKLoggerWhenNoneIsProvidedForTheEvaluation() async {
+        let globalLogs = CapturingLogHandler.Store()
+        OpenFeatureAPI.shared.setLogger(CapturingLogHandler.logger(label: "test.global", store: globalLogs))
         let options = OfrepProviderOptions(
             endpoint: "http://localhost:1031/",
             pollInterval: 0,
-            networkService: MockNetworkingService(mockStatus: 200),
-            logger: CapturingLogHandler.logger(label: "test.options", store: optionsLogs))
+            networkService: MockNetworkingService(mockStatus: 200))
         let provider = OfrepProvider(options: options)
         let api = OpenFeatureAPI()
         await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
@@ -1011,18 +1011,19 @@ class ProviderTests: XCTestCase {
         XCTAssertThrowsError(try provider.getBooleanEvaluation(
             key: "does-not-exist", defaultValue: false, context: defaultEvaluationContext))
 
-        XCTAssertTrue(optionsLogs.messages.contains("no flag found in cache for the key does-not-exist"),
-                      "The provider should fall back on the logger from its options, got: \(optionsLogs.messages)")
+        XCTAssertTrue(globalLogs.messages.contains("no flag found in cache for the key does-not-exist"),
+                      "The provider should fall back on the logger set on the SDK, "
+                      + "got: \(globalLogs.messages)")
     }
 
-    func testShouldPreferTheLoggerOfTheSDKOverTheOneFromTheOptions() async {
-        let optionsLogs = CapturingLogHandler.Store()
+    func testShouldPreferTheLoggerOfTheEvaluationOverTheGlobalSDKOne() async {
+        let globalLogs = CapturingLogHandler.Store()
         let sdkLogs = CapturingLogHandler.Store()
+        OpenFeatureAPI.shared.setLogger(CapturingLogHandler.logger(label: "test.global", store: globalLogs))
         let options = OfrepProviderOptions(
             endpoint: "http://localhost:1031/",
             pollInterval: 0,
-            networkService: MockNetworkingService(mockStatus: 200),
-            logger: CapturingLogHandler.logger(label: "test.options", store: optionsLogs))
+            networkService: MockNetworkingService(mockStatus: 200))
         let provider = OfrepProvider(options: options)
         let api = OpenFeatureAPI()
         api.setLogger(CapturingLogHandler.logger(label: "test.sdk", store: sdkLogs))
@@ -1032,9 +1033,10 @@ class ProviderTests: XCTestCase {
 
         let expectedLog = "no flag found in cache for the key does-not-exist"
         XCTAssertTrue(sdkLogs.messages.contains(expectedLog),
-                      "The logger given by the SDK should be used, got: \(sdkLogs.messages)")
-        XCTAssertFalse(optionsLogs.messages.contains(expectedLog),
-                       "The logger from the options should not be used when the SDK provides one.")
+                      "The logger given by the SDK for this evaluation should be used, "
+                      + "got: \(sdkLogs.messages)")
+        XCTAssertFalse(globalLogs.messages.contains(expectedLog),
+                       "The global logger should not be used when the SDK provides one for the evaluation.")
     }
 }
 

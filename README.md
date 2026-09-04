@@ -158,8 +158,9 @@ which returns a `ProviderStatus` (`.notReady`, `.ready`, `.error`, `.stale`, `.f
 
 ### Logging
 
-The provider uses [swift-log](https://github.com/apple/swift-log). You can set a logger globally on the
-OpenFeature SDK, and it will be passed to the provider during the flag evaluations:
+The provider uses [swift-log](https://github.com/apple/swift-log). Set a logger on the OpenFeature SDK
+and the provider will use it, both during the flag evaluations and for what it logs on its own
+(polling errors, data collection failures, ...):
 
 ```swift
 import Logging
@@ -167,15 +168,8 @@ import Logging
 OpenFeatureAPI.shared.setLogger(Logger(label: "org.gofeatureflag.provider"))
 ```
 
-The provider also logs on its own (polling errors, data collection failures, ...) outside of any evaluation.
-To control that logger, pass one when you build the provider options:
-
-```swift
-let options = GoFeatureFlagProviderOptions(
-    endpoint: "https://relay.proxy.gofeatureflag.org/",
-    logger: Logger(label: "org.gofeatureflag.provider")
-)
-```
+If no logger is set on the SDK, the provider falls back on a default
+`Logger(label: "org.gofeatureflag.provider")`.
 
 ## Thanks
 _This project is tested with BrowserStack_.
