@@ -142,66 +142,79 @@ public class OfrepProvider: FeatureProvider {
         }
     }
 
-    // swiftlint:disable:next cyclomatic_complexity
+    /// Maps the error carried by a bulk evaluation response to the matching OpenFeature error.
+    private static func openFeatureError(from response: OfrepEvaluationResponse) -> OpenFeatureError {
+        switch response.errorCode {
+        case .providerNotReady:
+            return OpenFeatureError.providerNotReadyError
+        case .parseError:
+            return OpenFeatureError.parseError(message: response.errorDetails ?? "impossible to parse")
+        case .targetingKeyMissing:
+            return OpenFeatureError.targetingKeyMissingError
+        case .invalidContext:
+            return OpenFeatureError.invalidContextError
+        default:
+            return OpenFeatureError.generalError(message: response.errorDetails ?? "")
+        }
+    }
+
+    /// Indexes the flags of a bulk evaluation response by key, keeping the last one for a
+    /// duplicated key. Flags without a key are not addressable and are dropped.
+    private static func cache(
+        from flags: [OfrepEvaluationResponseFlag]
+    ) -> [String: OfrepEvaluationResponseFlag] {
+        return Dictionary(
+            flags.compactMap { flag in flag.key.map { ($0, flag) } },
+            uniquingKeysWith: { _, latest in latest })
+    }
+
+    /// True while the `Retry-After` window installed by a previous 429 is still open.
+    private var isWithinRetryWindow: Bool {
+        guard let retryAfter = self.apiRetryAfter else {
+            return false
+        }
+        return retryAfter > Date()
+    }
+
     private func evaluateFlags(context: EvaluationContext?) async throws -> BulkEvaluationStatus {
-        if self.apiRetryAfter != nil && self.apiRetryAfter! > Date() {
+        if self.isWithinRetryWindow {
             // we don't want to call the API because we got a 429
             try Task.checkCancellation()
             return BulkEvaluationStatus.rateLimited
         }
 
+        let ofrepEvalResponse: OfrepEvaluationResponse
+        let httpResp: HTTPURLResponse
         do {
-            let (ofrepEvalResponse, httpResp) = try await self.ofrepAPI.postBulkEvaluateFlags(context: context)
-            // Apply the cancellation policy before any return or mutation, including 304 /
-            // error bodies that never reach the cache-write guard below.
-            try Task.checkCancellation()
-
-            if httpResp.statusCode == 304 {
-                return BulkEvaluationStatus.successNoChanges
-            }
-
-            if ofrepEvalResponse.isError() {
-                switch ofrepEvalResponse.errorCode {
-                case .providerNotReady:
-                    throw OpenFeatureError.providerNotReadyError
-                case .parseError:
-                    throw OpenFeatureError.parseError(message: ofrepEvalResponse.errorDetails ?? "impossible to parse")
-                case .targetingKeyMissing:
-                    throw OpenFeatureError.targetingKeyMissingError
-                case .invalidContext:
-                    throw OpenFeatureError.invalidContextError
-                default:
-                    throw OpenFeatureError.generalError(message: ofrepEvalResponse.errorDetails ?? "")
-                }
-            }
-
-            var inMemoryCacheNew: [String:OfrepEvaluationResponseFlag] = [:]
-            for flag in ofrepEvalResponse.flags {
-                if let key = flag.key {
-                    inMemoryCacheNew[key] = flag
-                }
-            }
-            // The response of a reconciliation that `onContextSet` has cancelled must not
-            // overwrite the cache filled by the context change that replaced it.
-            try Task.checkCancellation()
-            self.inMemoryCache = inMemoryCacheNew
-            return BulkEvaluationStatus.successWithChanges
-        } catch is CancellationError {
-            throw CancellationError()
+            (ofrepEvalResponse, httpResp) = try await self.ofrepAPI.postBulkEvaluateFlags(context: context)
         } catch let error as OfrepError {
             // A superseded reconcile must not install a retry window that would make the
             // winning call return `.rateLimited` with the wrong context's flags.
             try Task.checkCancellation()
-            switch error {
-            case .apiTooManyRequestsError(let response):
-                self.apiRetryAfter = getRetryAfterDate(from: response.allHeaderFields)
-                throw error
-            default:
-                throw error
+            if case .apiTooManyRequestsError(let response) = error {
+                self.apiRetryAfter = self.getRetryAfterDate(from: response.allHeaderFields)
             }
-        } catch {
             throw error
         }
+
+        // Apply the cancellation policy before any return or mutation, including 304 /
+        // error bodies that never reach the cache-write guard below.
+        try Task.checkCancellation()
+
+        if httpResp.statusCode == 304 {
+            return BulkEvaluationStatus.successNoChanges
+        }
+
+        if ofrepEvalResponse.isError() {
+            throw OfrepProvider.openFeatureError(from: ofrepEvalResponse)
+        }
+
+        let refreshedCache = OfrepProvider.cache(from: ofrepEvalResponse.flags)
+        // The response of a reconciliation that `onContextSet` has cancelled must not
+        // overwrite the cache filled by the context change that replaced it.
+        try Task.checkCancellation()
+        self.inMemoryCache = refreshedCache
+        return BulkEvaluationStatus.successWithChanges
     }
 
     private func getRetryAfterDate(from headers: [AnyHashable: Any]) -> Date? {
