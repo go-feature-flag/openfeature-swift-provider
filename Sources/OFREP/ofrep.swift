@@ -32,7 +32,7 @@ public class OfrepProvider: FeatureProvider {
     public func observe() -> AnyPublisher<OpenFeature.ProviderEvent?, Never> {
             return eventHandler.observe()
     }
-    
+
     public func initialize(initialContext: (any OpenFeature.EvaluationContext)?) async throws {
         self.evaluationContext = initialContext
         do {
@@ -44,8 +44,9 @@ public class OfrepProvider: FeatureProvider {
             if status == .successWithChanges {
                 return
             }
-            
-            throw OpenFeatureError.generalError(message: "impossible to initialize the provider, receive unknown status")
+
+            throw OpenFeatureError.generalError(
+                message: "impossible to initialize the provider, receive unknown status")
         } catch {
             switch error {
             case OfrepError.apiUnauthorizedError, OfrepError.forbiddenError:
