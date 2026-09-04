@@ -71,25 +71,31 @@ class ProviderTests: XCTestCase {
 
     func testShouldBeInErrorStatusIf429ErrorDuringInitialise() async {
         let mockResponse = "{}"
-        let mockService = MockNetworkingService(mockData:  mockResponse.data(using: .utf8), mockStatus: 429)
+        let mockService = MockNetworkingService(mockData: mockResponse.data(using: .utf8), mockStatus: 429)
 
         let options = OfrepProviderOptions(
             endpoint: "http://localhost:1031/",
+            pollInterval: 0,
             networkService: mockService
         )
         let provider = OfrepProvider(options: options)
         let api = OpenFeatureAPI()
-        
-        let expectation = XCTestExpectation(description: "waiting 1st event")
-        let cancellable = api.observe().sink{ event in
-            if(event != ProviderEvent.error(ProviderEventDetails(message: "The operation couldn’t be completed. (OFREP.OfrepError error 3.)"))){
-                XCTFail("If OFREP API returns a 429 we should receive an ERROR event, received: \(String(describing: event)))")
-            }
+
+        var receivedEvents = [ProviderEvent]()
+        let expectation = XCTestExpectation(description: "waiting for the error event")
+        let cancellable = provider.observe().sink { event in
+            receivedEvents.append(event)
             expectation.fulfill()
         }
         await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
         await fulfillment(of: [expectation], timeout: 3.0)
         cancellable.cancel()
+
+        // Assert on a stable message instead of the OS-generated bridged NSError string.
+        XCTAssertEqual(
+            [.error(ProviderEventDetails(message: "the OFREP API returned too many requests (429)"))],
+            receivedEvents)
+        XCTAssertEqual(ProviderStatus.error, api.getProviderStatus())
     }
 
     func testShouldEmitAGeneralErrorIfInitialiseReceivesAnUnknownStatus() async {

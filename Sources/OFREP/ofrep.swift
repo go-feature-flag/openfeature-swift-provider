@@ -175,10 +175,17 @@ public class OfrepProvider: FeatureProvider {
     /// used to derive from a thrown error before 0.6.0.
     private static func errorEvent(from error: Error) -> ProviderEvent {
         switch error {
-        case OfrepError.apiUnauthorizedError, OfrepError.forbiddenError:
-            return .error(ProviderEventDetails(message: error.localizedDescription, errorCode: .providerFatal))
-        case let openFeatureError as OpenFeatureError:
+        case let ofrepError as OfrepError:
             // `localizedDescription` is useless for this enum, `description` carries the message.
+            switch ofrepError {
+            case .apiUnauthorizedError, .forbiddenError:
+                // Authentication failures are not recoverable, so the provider reports them as fatal.
+                return .error(ProviderEventDetails(message: ofrepError.description, errorCode: .providerFatal))
+            default:
+                return .error(ProviderEventDetails(message: ofrepError.description))
+            }
+        case let openFeatureError as OpenFeatureError:
+            // Same reasoning: `description` carries the message, `localizedDescription` does not.
             return .error(
                 ProviderEventDetails(
                     message: openFeatureError.description,
