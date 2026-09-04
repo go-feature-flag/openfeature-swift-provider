@@ -66,6 +66,64 @@ public class MockNetworkingService: NetworkingService {
             return (data, response)
         }
 
+        // Rate limits every call after the first one, but without a Retry-After header: the
+        // provider has no window to respect and has to reach the API again on the next poll.
+        if targetingKey == "429-no-retry-after" {
+            if callCounter == 2 {
+                let response = HTTPURLResponse(
+                    url: request.url!, statusCode: 429, httpVersion: nil, headerFields: nil)!
+                return (data, response)
+            }
+            // A fresh ETag every time, so the provider never gets a 304 and always sees changes.
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil,
+                headerFields: ["ETag": "429-no-retry-after-\(callCounter)"])!
+            return (data, response)
+        }
+
+        // Rate limits every call after the first one with a Retry-After expressed as an
+        // HTTP-date far in the future, so the provider must stop calling the API.
+        if targetingKey == "429-http-date" {
+            if callCounter == 1 {
+                let response = HTTPURLResponse(
+                    url: request.url!, statusCode: 200, httpVersion: nil,
+                    headerFields: ["ETag": "429-http-date"])!
+                return (data, response)
+            }
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 429, httpVersion: nil,
+                headerFields: ["Retry-After": "Wed, 21 Oct 2099 07:28:00 GMT"])!
+            return (data, response)
+        }
+
+        // Answers once, then rejects everything with a 401: used both for a context change and
+        // for a poll that becomes unauthorized after the provider is initialised.
+        if targetingKey == "401-after-first" {
+            if callCounter == 1 {
+                let response = HTTPURLResponse(
+                    url: request.url!, statusCode: 200, httpVersion: nil,
+                    headerFields: ["ETag": "401-after-first"])!
+                return (data, response)
+            }
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!
+            return (data, response)
+        }
+
+        // Answers once, then returns a bulk evaluation error the server decides on. It is not an
+        // OfrepError, so it exercises the paths handling an OpenFeatureError.
+        if targetingKey == "error-after-first" {
+            if callCounter == 1 {
+                let response = HTTPURLResponse(
+                    url: request.url!, statusCode: 200, httpVersion: nil,
+                    headerFields: ["ETag": "error-after-first"])!
+                return (data, response)
+            }
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 400, httpVersion: nil, headerFields: nil)!
+            return (bulkErrorResponse.data(using: .utf8)!, response)
+        }
+
         if mockStatus == 429 || (targetingKey == "429" && callCounter >= 2){
             headers = ["Retry-After": "120"]
             mockStatus = 429
@@ -92,6 +150,14 @@ public class MockNetworkingService: NetworkingService {
         let response = mockURLResponse ?? HTTPURLResponse(url: request.url!, statusCode: mockStatus, httpVersion: nil, headerFields: headers)!
         return (data, response)
     }
+
+    /// A bulk evaluation the server rejected as a whole, as opposed to a single flag in error.
+    private let bulkErrorResponse = """
+    {
+      "errorCode": "INVALID_CONTEXT",
+      "errorDetails": "Error details about INVALID_CONTEXT"
+    }
+    """
 
     private let secondResponse = """
     {

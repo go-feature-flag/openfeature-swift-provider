@@ -1038,6 +1038,287 @@ class ProviderTests: XCTestCase {
         XCTAssertFalse(globalLogs.messages.contains(expectedLog),
                        "The global logger should not be used when the SDK provides one for the evaluation.")
     }
+    func testShouldEvaluateEveryTypeWithoutALogger() async throws {
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0,
+            networkService: MockNetworkingService(mockStatus: 200))
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+
+        // The 3 arguments overloads are the ones a caller uses directly: the SDK always calls the
+        // 4 arguments ones to pass the logger of the evaluation.
+        let boolEval = try provider.getBooleanEvaluation(
+            key: "bool-flag", defaultValue: false, context: defaultEvaluationContext)
+        XCTAssertEqual(true, boolEval.value)
+
+        let stringEval = try provider.getStringEvaluation(
+            key: "string-flag", defaultValue: "default", context: defaultEvaluationContext)
+        XCTAssertEqual("1234value", stringEval.value)
+
+        let intEval = try provider.getIntegerEvaluation(
+            key: "int-flag", defaultValue: 1, context: defaultEvaluationContext)
+        XCTAssertEqual(1234, intEval.value)
+
+        let doubleEval = try provider.getDoubleEvaluation(
+            key: "double-flag", defaultValue: 1.0, context: defaultEvaluationContext)
+        XCTAssertEqual(12.34, doubleEval.value)
+
+        let objectEval = try provider.getObjectEvaluation(
+            key: "object-flag", defaultValue: Value.null, context: defaultEvaluationContext)
+        XCTAssertEqual(
+            Value.structure(["testValue": Value.structure(["toto": Value.integer(1234)])]),
+            objectEval.value)
+    }
+
+    func testShouldEmitAFatalErrorWhenAContextChangeIsUnauthorized() async {
+        let mockService = MockNetworkingService(mockStatus: 200)
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0,
+            networkService: mockService)
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+
+        var receivedEvents = [ProviderEvent]()
+        let errorReceived = expectation(description: "The rejected context change reports an error")
+        api.observe().sink { event in
+            if event == .ready() {
+                return // replay of the current status for a new subscriber
+            }
+            receivedEvents.append(event)
+            if case .error = event {
+                errorReceived.fulfill()
+            }
+        }.store(in: &cancellables)
+
+        api.setEvaluationContext(evaluationContext: ImmutableContext(targetingKey: "401-after-first"))
+        await fulfillment(of: [errorReceived], timeout: 3)
+
+        XCTAssertEqual(.reconciling(), receivedEvents.first)
+        guard case .error(let details) = receivedEvents.last else {
+            return XCTFail("expected an error event, got \(String(describing: receivedEvents.last))")
+        }
+        XCTAssertEqual(ErrorCode.providerFatal, details?.errorCode,
+                       "A 401 on a context change is not recoverable, the provider has to report it as fatal.")
+        XCTAssertEqual(ProviderStatus.fatal, provider.status)
+    }
+
+    func testShouldEmitAnErrorWhenTheAPIRejectsTheNewContext() async {
+        let mockService = MockNetworkingService(mockStatus: 200)
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0,
+            networkService: mockService)
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+
+        var receivedEvents = [ProviderEvent]()
+        let errorReceived = expectation(description: "The rejected context change reports an error")
+        api.observe().sink { event in
+            if event == .ready() {
+                return // replay of the current status for a new subscriber
+            }
+            receivedEvents.append(event)
+            if case .error = event {
+                errorReceived.fulfill()
+            }
+        }.store(in: &cancellables)
+
+        // Whether a context is usable is the answer of the API, not something the provider
+        // decides on its own: here the server rejects the whole bulk evaluation.
+        api.setEvaluationContext(evaluationContext: ImmutableContext(targetingKey: "error-after-first"))
+        await fulfillment(of: [errorReceived], timeout: 3)
+
+        XCTAssertEqual(
+            [.reconciling(),
+             .error(ProviderEventDetails(message: "Invalid or missing context", errorCode: .invalidContext))],
+            receivedEvents)
+        XCTAssertEqual(ProviderStatus.error, provider.status)
+    }
+
+    func testShouldMapAProviderNotReadyBulkErrorToTheMatchingError() async {
+        let mockResponse = """
+{
+    "errorCode": "PROVIDER_NOT_READY",
+    "errorDetails": "Error details about PROVIDER_NOT_READY"
+}
+"""
+        let mockService = MockNetworkingService(mockData: mockResponse.data(using: .utf8), mockStatus: 400)
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0,
+            networkService: mockService)
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+
+        var receivedEvents = [ProviderEvent]()
+        let expectation = XCTestExpectation(description: "waiting for the error event")
+        let cancellable = provider.observe().sink { event in
+            receivedEvents.append(event)
+            expectation.fulfill()
+        }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        await fulfillment(of: [expectation], timeout: 3)
+        cancellable.cancel()
+
+        XCTAssertEqual(
+            [.error(ProviderEventDetails(
+                message: "The value was resolved before the provider was ready",
+                errorCode: .providerNotReady))],
+            receivedEvents)
+    }
+
+    func testShouldMapAnUnhandledBulkErrorToAGeneralError() async {
+        // FLAG_NOT_FOUND is a valid OFREP error code, but it makes no sense for a whole bulk
+        // evaluation, so it falls back on a general error.
+        let mockResponse = """
+{
+    "errorCode": "FLAG_NOT_FOUND",
+    "errorDetails": "Error details about FLAG_NOT_FOUND"
+}
+"""
+        let mockService = MockNetworkingService(mockData: mockResponse.data(using: .utf8), mockStatus: 400)
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0,
+            networkService: mockService)
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+
+        var receivedEvents = [ProviderEvent]()
+        let expectation = XCTestExpectation(description: "waiting for the error event")
+        let cancellable = provider.observe().sink { event in
+            receivedEvents.append(event)
+            expectation.fulfill()
+        }
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        await fulfillment(of: [expectation], timeout: 3)
+        cancellable.cancel()
+
+        XCTAssertEqual(
+            [.error(ProviderEventDetails(
+                message: "General error: Error details about FLAG_NOT_FOUND",
+                errorCode: .general))],
+            receivedEvents)
+    }
+
+    func testShouldCallTheAPIAgainWhenA429HasNoRetryAfterHeader() async {
+        let mockService = MockNetworkingService(mockStatus: 200)
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 1,
+            networkService: mockService)
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+
+        var receivedEvents = [ProviderEvent]()
+        let recovered = expectation(description: "Ready event after the 429")
+        api.observe().sink { event in
+            receivedEvents.append(event)
+            if receivedEvents.count == 3 {
+                recovered.fulfill()
+            }
+        }.store(in: &cancellables)
+
+        await api.setProviderAndWait(
+            provider: provider,
+            initialContext: ImmutableContext(targetingKey: "429-no-retry-after"))
+        await fulfillment(of: [recovered], timeout: 10)
+
+        XCTAssertEqual([.ready(), .stale(), .ready()], Array(receivedEvents.prefix(3)),
+                       "Without a Retry-After header there is no window to respect, "
+                       + "so the next poll has to reach the API again.")
+        XCTAssertGreaterThanOrEqual(mockService.callCounter, 3)
+    }
+
+    func testShouldRespectARetryAfterHeaderExpressedAsAnHTTPDate() async {
+        let mockService = MockNetworkingService(mockStatus: 200)
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 1,
+            networkService: mockService)
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+
+        var receivedEvents = [ProviderEvent]()
+        let stale = expectation(description: "Stale event")
+        api.observe().sink { event in
+            receivedEvents.append(event)
+            if receivedEvents.count == 2 {
+                stale.fulfill()
+            }
+        }.store(in: &cancellables)
+
+        await api.setProviderAndWait(
+            provider: provider,
+            initialContext: ImmutableContext(targetingKey: "429-http-date"))
+        await fulfillment(of: [stale], timeout: 10)
+        let callsWhenRateLimited = mockService.callCounter
+        // Let a couple of poll intervals pass: the provider must not call the API again.
+        try? await Task.sleep(nanoseconds: 2_500_000_000)
+
+        XCTAssertEqual([.ready(), .stale()], Array(receivedEvents.prefix(2)))
+        XCTAssertEqual(callsWhenRateLimited, mockService.callCounter,
+                       "A Retry-After given as an HTTP-date must be honoured like a delay in seconds.")
+        XCTAssertEqual(ProviderStatus.stale, api.getProviderStatus())
+    }
+
+    func testShouldLogWhenPollingIsUnauthorized() async {
+        let logs = CapturingLogHandler.Store()
+        OpenFeatureAPI.shared.setLogger(CapturingLogHandler.logger(label: "test.polling", store: logs))
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 1,
+            networkService: MockNetworkingService(mockStatus: 200))
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(
+            provider: provider,
+            initialContext: ImmutableContext(targetingKey: "401-after-first"))
+
+        let logged = await waitForLog(logs, containing: "error while polling the OFREP API")
+        XCTAssertTrue(logged, "A poll rejected with a 401 should be logged, got: \(logs.messages)")
+    }
+
+    func testShouldLogWhenPollingReceivesAnErrorResponse() async {
+        let logs = CapturingLogHandler.Store()
+        OpenFeatureAPI.shared.setLogger(CapturingLogHandler.logger(label: "test.polling", store: logs))
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 1,
+            networkService: MockNetworkingService(mockStatus: 200))
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(
+            provider: provider,
+            initialContext: ImmutableContext(targetingKey: "error-after-first"))
+
+        let logged = await waitForLog(logs, containing: "error while polling the OFREP API")
+        XCTAssertTrue(logged,
+                      "A poll rejected by the API itself should be logged, got: \(logs.messages)")
+    }
+
+    /// Polls until `store` has recorded a message containing `needle`, instead of sleeping a
+    /// fixed interval and hoping the background poll already ran.
+    private func waitForLog(
+        _ store: CapturingLogHandler.Store,
+        containing needle: String,
+        timeout: TimeInterval = 10.0
+    ) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if store.messages.contains(where: { $0.contains(needle) }) {
+                return true
+            }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        return false
+    }
+
 }
 
 /// Collects the messages it receives, so that a test can assert on which logger the provider used.
