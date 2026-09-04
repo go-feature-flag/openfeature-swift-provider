@@ -12,7 +12,7 @@ In conjuction with the [OpenFeature SDK](https://openfeature.dev/docs/reference/
 
 > [!IMPORTANT]
 > Starting with `0.6.0` this provider requires **Swift 6.1+**, **iOS 15+**, **tvOS 15+**, **watchOS 8+** and **macOS 12+**.
-> The OpenFeature Swift SDK `0.6.0` uses trailing commas in parameter lists (SE-0430), which need Swift 6.1 / Xcode 16.3+.
+> The OpenFeature Swift SDK `0.6.0` uses trailing commas in parameter lists (SE-0439), which need Swift 6.1 / Xcode 16.3+.
 
 For documentation related to flags management in GO Feature Flag, refer to the [GO Feature Flag documentation website](https://gofeatureflag.org/docs).
 
@@ -117,7 +117,7 @@ client.getIntegerValue(key: "my-flag", defaultValue: 1)
 client.getDoubleValue(key: "my-flag", defaultValue: 1.1)
 
 // Object
-client.getObjectValue(key: "my-flag", defaultValue: Value.structure(["key":Value.integer("1234")])
+client.getObjectValue(key: "my-flag", defaultValue: Value.structure(["key":Value.integer(1234)]))
 ```
 
 > [!NOTE]  

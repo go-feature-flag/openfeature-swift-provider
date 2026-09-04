@@ -90,7 +90,7 @@ public class OfrepProvider: FeatureProvider {
                     let status = try await self.evaluateFlags(context: initialContext)
                     guard status == .successWithChanges else {
                         throw OpenFeatureError.generalError(
-                            message: "impossible to initialize the provider, receive unknown status")
+                            message: "the initial bulk evaluation returned no changes (HTTP 304) but the cache is empty")
                     }
                     self.statusTracker.send(.ready(nil))
                 } catch is CancellationError {
@@ -432,20 +432,17 @@ extension OfrepProvider {
                 reason: flagCached.reason)
         }
 
-        if arrayValue != nil {
-            var convertedValue: [Value] = []
-            arrayValue?.forEach { item in
-                convertedValue.append(item.toValue())
-            }
-            return ProviderEvaluation<Value>(
-                value: Value.list(convertedValue),
-                flagMetadata: flagCached.flagMetadata ?? [:],
-                variant: flagCached.variant,
-                reason: flagCached.reason
-            )
+        // The guard above guarantees the value is a list once it is not an object.
+        var convertedValue: [Value] = []
+        arrayValue?.forEach { item in
+            convertedValue.append(item.toValue())
         }
-        throw OpenFeatureError.generalError(
-            message: "impossible to evaluate the flag because it is not a list or a dictionnary")
+        return ProviderEvaluation<Value>(
+            value: Value.list(convertedValue),
+            flagMetadata: flagCached.flagMetadata ?? [:],
+            variant: flagCached.variant,
+            reason: flagCached.reason
+        )
     }
 
     /// Returns the logger provided by the SDK for this evaluation, falling back to the one the

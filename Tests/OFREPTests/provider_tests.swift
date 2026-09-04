@@ -118,7 +118,7 @@ class ProviderTests: XCTestCase {
         let expectedEvents: [ProviderEvent] = [
             .error(
                 ProviderEventDetails(
-                    message: "General error: impossible to initialize the provider, receive unknown status",
+                    message: "General error: the initial bulk evaluation returned no changes (HTTP 304) but the cache is empty",
                     errorCode: .general))
         ]
         XCTAssertEqual(receivedEvents, expectedEvents)
