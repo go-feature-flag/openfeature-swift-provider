@@ -124,6 +124,21 @@ public class MockNetworkingService: NetworkingService {
             return (bulkErrorResponse.data(using: .utf8)!, response)
         }
 
+        // Fails the initial call with a transient 5xx, then answers 200 with a fresh ETag on every
+        // following poll: used to check the provider still starts polling after a failed
+        // initialisation and recovers from error to ready once the API answers again.
+        if targetingKey == "fail-init-then-recover" {
+            if callCounter == 1 {
+                let response = HTTPURLResponse(
+                    url: request.url!, statusCode: 500, httpVersion: nil, headerFields: nil)!
+                return (data, response)
+            }
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil,
+                headerFields: ["ETag": "fail-init-then-recover-\(callCounter)"])!
+            return (data, response)
+        }
+
         if mockStatus == 429 || (targetingKey == "429" && callCounter >= 2){
             headers = ["Retry-After": "120"]
             mockStatus = 429

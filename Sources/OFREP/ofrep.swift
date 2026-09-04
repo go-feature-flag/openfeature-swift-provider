@@ -61,10 +61,6 @@ public class OfrepProvider: FeatureProvider {
             Task {
                 do {
                     let status = try await self.evaluateFlags(context: self.withStateLock { self.evaluationContext })
-                    if self.options.pollInterval > 0 {
-                        self.startPolling(pollInterval: self.options.pollInterval)
-                    }
-
                     guard status == .successWithChanges else {
                         throw OpenFeatureError.generalError(
                             message: "impossible to initialize the provider, receive unknown status")
@@ -72,6 +68,13 @@ public class OfrepProvider: FeatureProvider {
                     self.statusTracker.send(.ready(nil))
                 } catch {
                     self.statusTracker.send(OfrepProvider.errorEvent(from: error))
+                }
+                // Start polling regardless of how the initial fetch went. A transient failure on the
+                // first call (a network blip, a 5xx, a first-call 429) must not permanently disable
+                // polling, otherwise the provider would stay in error forever with an empty cache and
+                // no way to retry — the poll below is what heals it back to `.ready`.
+                if self.options.pollInterval > 0 {
+                    self.startPolling(pollInterval: self.options.pollInterval)
                 }
                 // The event is always emitted before resolving, so that callers of
                 // setProviderAndWait observe the correct status as soon as it returns.
@@ -259,10 +262,11 @@ public class OfrepProvider: FeatureProvider {
                 do {
                     let status = try await weakSelf.evaluateFlags(
                         context: weakSelf.withStateLock { weakSelf.evaluationContext })
-                    if status != .rateLimited && weakSelf.status == .stale {
+                    if status != .rateLimited && (weakSelf.status == .stale || weakSelf.status == .error) {
                         // We reached the API again, so the cache is up to date. `.ready` has to
                         // be emitted explicitly: the tracker maps `.configurationChanged` to no
-                        // status change, which would leave the provider stale forever.
+                        // status change, which would otherwise leave the provider stuck in `.stale`
+                        // or `.error`. `.fatal` is intentionally not recovered: it is terminal.
                         weakSelf.statusTracker.send(.ready(nil))
                     }
                     if status == .successWithChanges {

@@ -1319,6 +1319,44 @@ class ProviderTests: XCTestCase {
         return false
     }
 
+    /// Polls `provider.status` until it reaches `target`, instead of sleeping a fixed interval and
+    /// hoping the background poll already ran.
+    private func waitForStatus(
+        _ provider: OfrepProvider,
+        equals target: ProviderStatus,
+        timeout: TimeInterval = 10.0
+    ) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if provider.status == target {
+                return true
+            }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        return false
+    }
+
+    func testShouldRecoverToReadyWhenInitialisationFailsButPollingSucceeds() async {
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 1, // polling must start even though the initial fetch fails
+            networkService: MockNetworkingService(mockStatus: 200))
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(
+            provider: provider, initialContext: ImmutableContext(targetingKey: "fail-init-then-recover"))
+
+        // The initial fetch failed with a 5xx, so the provider starts in error with an empty cache.
+        XCTAssertEqual(api.getProviderStatus(), ProviderStatus.error)
+
+        // Polling must still have started and must heal the provider once the API answers again.
+        let recovered = await waitForStatus(provider, equals: .ready)
+        XCTAssertTrue(recovered, "Polling should recover a failed initialisation to .ready")
+        // The recovered cache must now serve flags.
+        let evaluation = try? provider.getBooleanEvaluation(key: "my-flag", defaultValue: false, context: nil)
+        XCTAssertEqual(evaluation?.value, true)
+    }
+
     /// Hammers the synchronous flag reads from many OS threads while the polling timer and repeated
     /// context changes rewrite the shared cache and evaluation context concurrently. Meant to run
     /// under ThreadSanitizer (`swift test --sanitize=thread`): without the provider's state lock the
