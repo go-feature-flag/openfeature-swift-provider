@@ -8,7 +8,10 @@
 
 This repository contains the official Swift OpenFeature provider for accessing your feature flags with [GO Feature Flag](https://gofeatureflag.org).
 
-In conjuction with the [OpenFeature SDK](https://openfeature.dev/docs/reference/concepts/provider) you will be able to evaluate your feature flags in your **iOS**/**tvOS**/**macOS** applications.
+In conjuction with the [OpenFeature SDK](https://openfeature.dev/docs/reference/concepts/provider) you will be able to evaluate your feature flags in your **iOS**/**tvOS**/**watchOS**/**macOS** applications.
+
+> [!IMPORTANT]
+> Starting with `0.6.0` this provider requires **iOS 15+**, **tvOS 15+**, **watchOS 8+** and **macOS 12+**, following the minimum platforms of the OpenFeature Swift SDK `0.6.0`.
 
 For documentation related to flags management in GO Feature Flag, refer to the [GO Feature Flag documentation website](https://gofeatureflag.org/docs).
 
@@ -25,7 +28,7 @@ For documentation related to flags management in GO Feature Flag, refer to the [
 
 In the dependencies section of `Package.swift` add:
 ```swift
-.package(url: "https://github.com/go-feature-flag/openfeature-swift-provider.git", from: "0.5.0")
+.package(url: "https://github.com/go-feature-flag/openfeature-swift-provider.git", from: "0.6.0")
 ```
 
 and in the target dependencies section add:
@@ -127,19 +130,51 @@ When setting the provider or the context *(via `setEvaluationContext()` or `setP
 To listen to them you can add an event handler via the `OpenFeatureAPI` shared instance:
 
 ```swift
+// Keep the subscription alive, it is cancelled as soon as it is released.
+var cancellables = Set<AnyCancellable>()
+
 OpenFeatureAPI.shared.observe().sink { event in
-    if event == .error {
+    switch event {
+    case .error(let details):
         // An error has been emitted
+        print("provider error: \(details?.message ?? "no message")")
+    default:
+        break
     }
-}
+}.store(in: &cancellables)
 ```
 
 #### Existing type of events are:
-- `.ready`: Provider is ready.
+- `.ready`: Provider is ready to evaluate the feature flags.
 - `.error`: Provider in error.
 - `.configurationChanged`: Configuration has changed in GO Feature Flag.
-- `.PROVIDER_STALE`: Provider has not the latest version of the feature flags.
-- `.notReady`: Provider is not ready to evaluate the feature flags.
+- `.stale`: Provider has not the latest version of the feature flags.
+- `.reconciling`: Provider is refreshing the flags after an evaluation context change.
+- `.contextChanged`: Provider has finished refreshing the flags for the new evaluation context.
+
+The current state of the provider is also available at any time through `OpenFeatureAPI.shared.getProviderStatus()`,
+which returns a `ProviderStatus` (`.notReady`, `.ready`, `.error`, `.stale`, `.fatal` or `.reconciling`).
+
+### Logging
+
+The provider uses [swift-log](https://github.com/apple/swift-log). You can set a logger globally on the
+OpenFeature SDK, and it will be passed to the provider during the flag evaluations:
+
+```swift
+import Logging
+
+OpenFeatureAPI.shared.setLogger(Logger(label: "org.gofeatureflag.provider"))
+```
+
+The provider also logs on its own (polling errors, data collection failures, ...) outside of any evaluation.
+To control that logger, pass one when you build the provider options:
+
+```swift
+let options = GoFeatureFlagProviderOptions(
+    endpoint: "https://relay.proxy.gofeatureflag.org/",
+    logger: Logger(label: "org.gofeatureflag.provider")
+)
+```
 
 ## Thanks
 _This project is tested with BrowserStack_.

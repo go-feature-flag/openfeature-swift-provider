@@ -1,6 +1,7 @@
 import XCTest
 import Combine
 import Foundation
+import Logging
 import OpenFeature
 @testable import OFREP
 
@@ -89,7 +90,7 @@ class ProviderTests: XCTestCase {
         cancellable.cancel()
     }
 
-    func testShouldThrowAGeneralErrorIfInitialiseReceivesAnUnknownStatus() async {
+    func testShouldEmitAGeneralErrorIfInitialiseReceivesAnUnknownStatus() async {
         // A 304 on the very first call makes the bulk evaluation report
         // successNoChanges, which is not a valid state to initialise from.
         let mockService = MockNetworkingService(mockStatus: 304)
@@ -101,14 +102,43 @@ class ProviderTests: XCTestCase {
         )
         let provider = OfrepProvider(options: options)
 
-        do {
-            try await provider.initialize(initialContext: defaultEvaluationContext)
-            XCTFail("initialize should throw when the status is not successWithChanges")
-        } catch OpenFeatureError.generalError(let message) {
-            XCTAssertEqual("impossible to initialize the provider, receive unknown status", message)
-        } catch {
-            XCTFail("Expected OpenFeatureError.generalError but got: \(error)")
+        // Since 0.6.0 initialize() no longer throws: the failure is reported as an
+        // error event, and the provider moves to the error status.
+        let expectation = XCTestExpectation(description: "waiting for the error event")
+        var receivedEvents = [ProviderEvent]()
+        let cancellable = provider.observe().sink { event in
+            receivedEvents.append(event)
+            expectation.fulfill()
         }
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        await fulfillment(of: [expectation], timeout: 3.0)
+        cancellable.cancel()
+
+        let expectedEvents: [ProviderEvent] = [
+            .error(
+                ProviderEventDetails(
+                    message: "General error: impossible to initialize the provider, receive unknown status",
+                    errorCode: .general))
+        ]
+        XCTAssertEqual(receivedEvents, expectedEvents)
+        XCTAssertEqual(provider.status, ProviderStatus.error)
+    }
+
+    func testShouldMoveFromNotReadyToReadyStatusOnInitialise() async {
+        let mockService = MockNetworkingService(mockStatus: 200)
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0, // no polling, we only care about the initialisation
+            networkService: mockService
+        )
+        let provider = OfrepProvider(options: options)
+        XCTAssertEqual(provider.status, ProviderStatus.notReady)
+
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+        XCTAssertEqual(provider.status, ProviderStatus.ready)
+        XCTAssertEqual(api.getProviderStatus(), ProviderStatus.ready)
     }
 
     func testShouldBeInErrorStatusIfErrorTargetingKeyIsMissing() async {
@@ -130,7 +160,9 @@ class ProviderTests: XCTestCase {
 
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
-            if(event != ProviderEvent.error(ProviderEventDetails(message: "The operation couldn’t be completed. (OpenFeature.OpenFeatureError error 5.)"))){
+            let expected = ProviderEvent.error(
+                ProviderEventDetails(message: "Targeting key missing in resolve", errorCode: .targetingKeyMissing))
+            if(event != expected){
                 XCTFail("If OFREP API returns a 400 for TARGETING_KEY_MISSING we should receive an ERROR event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
@@ -158,7 +190,9 @@ class ProviderTests: XCTestCase {
         let expectation = XCTestExpectation(description: "waiting 1st event")
         
         let cancellable = api.observe().sink{ event in
-            if(event != ProviderEvent.error(ProviderEventDetails(message: "The operation couldn’t be completed. (OpenFeature.OpenFeatureError error 4.)"))){
+            let expected = ProviderEvent.error(
+                ProviderEventDetails(message: "Invalid or missing context", errorCode: .invalidContext))
+            if(event != expected){
                 XCTFail("If OFREP API returns a 400 for INVALID_CONTEXT we should receive an ERROR event, received: \(String(describing: event))")
             }
             expectation.fulfill()
@@ -188,7 +222,10 @@ class ProviderTests: XCTestCase {
         
         let expectation = XCTestExpectation(description: "waiting 1st event")
         let cancellable = api.observe().sink{ event in
-            if(event != ProviderEvent.error(ProviderEventDetails(message: "The operation couldn’t be completed. (OpenFeature.OpenFeatureError error 2.)"))){
+            let expected = ProviderEvent.error(
+                ProviderEventDetails(
+                    message: "Parse error: Error details about PARSE_ERROR", errorCode: .parseError))
+            if(event != expected){
                 XCTFail("If OFREP API returns a 400 for PARSE_ERROR we should receive an ERROR event, received: \(String(describing: event)))")
             }
             expectation.fulfill()
@@ -356,9 +393,7 @@ class ProviderTests: XCTestCase {
             if event == .ready() {
                 return // The API replays the current ready status to new subscribers.
             }
-            if let event {
-                receivedEvents.append(event)
-            }
+            receivedEvents.append(event)
             switch receivedEvents.count{
             case 1:
                 expectation1.fulfill()
@@ -401,9 +436,7 @@ class ProviderTests: XCTestCase {
         let expectation2 = expectation(description: "Stale event")
         var receivedEvents = [ProviderEvent]()
         api.observe().sink{ event in
-            if let event {
-                receivedEvents.append(event)
-            }
+            receivedEvents.append(event)
             switch receivedEvents.count{
             case 1:
                 expectation1.fulfill()
@@ -466,9 +499,7 @@ class ProviderTests: XCTestCase {
             if event == .ready() {
                 return // The API replays the current ready status to new subscribers.
             }
-            if let event {
-                receivedEvents.append(event)
-            }
+            receivedEvents.append(event)
             switch receivedEvents.count{
             case 1:
                 expectation1.fulfill()
@@ -803,5 +834,245 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(details.errorCode, ErrorCode.typeMismatch)
         XCTAssertEqual(details.value, Value.list([Value.string("1")]))
         XCTAssertEqual(details.flagKey, "bool-flag")
+    }
+
+    func testShouldGoBackToReadyWhenTheAPIAnswersAgainAfterA429() async {
+        let mockService = MockNetworkingService(mockStatus: 200)
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 1,
+            networkService: mockService)
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+        let ctx = ImmutableContext(targetingKey: "429-recover")
+
+        let staleExpectation = expectation(description: "Stale event")
+        let recoveredExpectation = expectation(description: "Ready event after the retry window")
+        var receivedEvents = [ProviderEvent]()
+        api.observe().sink { event in
+            receivedEvents.append(event)
+            switch receivedEvents.count {
+            case 2:
+                staleExpectation.fulfill()
+            case 3:
+                recoveredExpectation.fulfill()
+            default:
+                break
+            }
+        }.store(in: &cancellables)
+
+        await api.setProviderAndWait(provider: provider, initialContext: ctx)
+        await fulfillment(of: [staleExpectation, recoveredExpectation], timeout: 10)
+
+        XCTAssertEqual([.ready(), .stale(), .ready()], Array(receivedEvents.prefix(3)),
+                       "The provider should report itself ready again once the API answers.")
+        XCTAssertEqual(ProviderStatus.ready, api.getProviderStatus(),
+                       "The provider should not stay stale once the retry window has passed.")
+    }
+
+    func testShouldKeepTheFlagsOfTheLastContextWhenTwoContextChangesOverlap() async {
+        let mockService = MockNetworkingService(mockStatus: 200)
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0,
+            networkService: mockService)
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+
+        let contextChanged = expectation(description: "Winning context finished reconciling")
+        api.observe().sink { event in
+            if event == .contextChanged() {
+                contextChanged.fulfill()
+            }
+        }.store(in: &cancellables)
+
+        // The 1st context answers 500ms later than the 2nd one, so without cancellation its
+        // response would land last and overwrite the flags of the context we actually want.
+        api.setEvaluationContext(evaluationContext: ImmutableContext(targetingKey: "slow-context"))
+        api.setEvaluationContext(evaluationContext: ImmutableContext(targetingKey: "second-context"))
+        await fulfillment(of: [contextChanged], timeout: 3)
+        // Give the cancelled slow response time to land if the guard were broken.
+        try? await Task.sleep(nanoseconds: 700_000_000)
+
+        let client = api.getClient()
+        let details = client.getBooleanDetails(key: "my-flag", defaultValue: true)
+        XCTAssertEqual("variantB", details.variant,
+                       "The flags of the superseded context should not overwrite the current ones.")
+        XCTAssertEqual(false, details.value)
+        XCTAssertEqual(ProviderStatus.ready, api.getProviderStatus())
+    }
+
+    func testShouldIgnoreACancelledReconcileThatReturns429() async {
+        let mockService = MockNetworkingService(mockStatus: 200)
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0,
+            networkService: mockService)
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+
+        var receivedEvents = [ProviderEvent]()
+        let contextChanged = expectation(description: "Winning context finished reconciling")
+        api.observe().sink { event in
+            if event == .ready() {
+                return // replay of the current status for a new subscriber
+            }
+            receivedEvents.append(event)
+            if event == .contextChanged() {
+                contextChanged.fulfill()
+            }
+        }.store(in: &cancellables)
+
+        // The slow call answers with 429 after 500ms; the fast call must win, and the
+        // cancelled 429 must stay silent (no .stale, no Retry-After installed).
+        api.setEvaluationContext(evaluationContext: ImmutableContext(targetingKey: "slow-429"))
+        api.setEvaluationContext(evaluationContext: ImmutableContext(targetingKey: "second-context"))
+        await fulfillment(of: [contextChanged], timeout: 3)
+        try? await Task.sleep(nanoseconds: 700_000_000)
+
+        XCTAssertEqual([.reconciling(), .reconciling(), .contextChanged()], receivedEvents,
+                       "A cancelled 429 must not emit .stale after the winning reconcile.")
+        XCTAssertEqual(ProviderStatus.ready, api.getProviderStatus())
+        let details = api.getClient().getBooleanDetails(key: "my-flag", defaultValue: true)
+        XCTAssertEqual("variantB", details.variant)
+        XCTAssertEqual(false, details.value)
+    }
+
+    func testShouldStayStaleWhenOnContextSetIsRateLimited() async {
+        let mockService = MockNetworkingService(mockStatus: 200)
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0,
+            networkService: mockService)
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+        // First call succeeds; the next evaluation with targetingKey "429" returns 429 and
+        // installs a long Retry-After, so the following context change is rate-limited.
+        await api.setProviderAndWait(
+            provider: provider,
+            initialContext: ImmutableContext(targetingKey: "429"))
+
+        let firstStale = expectation(description: "First context change hits 429")
+        firstStale.assertForOverFulfill = false
+        var phase1 = Set<AnyCancellable>()
+        api.observe().sink { event in
+            if event == .stale() {
+                firstStale.fulfill()
+            }
+        }.store(in: &phase1)
+
+        api.setEvaluationContext(evaluationContext: ImmutableContext(targetingKey: "429"))
+        await fulfillment(of: [firstStale], timeout: 3)
+        phase1.removeAll()
+        XCTAssertEqual(ProviderStatus.stale, api.getProviderStatus())
+
+        let callsBefore = mockService.callCounter
+        var events = [ProviderEvent]()
+        var seenReconciling = false
+        let rateLimitedReconcile = expectation(description: "Rate-limited context change settles")
+        api.observe().sink { event in
+            // Skip the status replay sent to new subscribers; keep everything after.
+            if !seenReconciling, event == .stale() || event == .ready() {
+                return
+            }
+            events.append(event)
+            if event == .reconciling() {
+                seenReconciling = true
+            }
+            if seenReconciling, event == .stale() || event == .contextChanged() || event == .error(nil) {
+                rateLimitedReconcile.fulfill()
+            }
+        }.store(in: &cancellables)
+
+        api.setEvaluationContext(evaluationContext: ImmutableContext(targetingKey: "second-context"))
+        await fulfillment(of: [rateLimitedReconcile], timeout: 3)
+
+        XCTAssertEqual(callsBefore, mockService.callCounter,
+                       "A rate-limited reconcile must not hit the API.")
+        XCTAssertEqual([.reconciling(), .stale()], events,
+                       "Rate-limited onContextSet must emit .stale, not .contextChanged.")
+        XCTAssertEqual(ProviderStatus.stale, api.getProviderStatus())
+    }
+
+    func testShouldUseTheLoggerFromTheOptionsWhenTheSDKProvidesNone() async {
+        let optionsLogs = CapturingLogHandler.Store()
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0,
+            networkService: MockNetworkingService(mockStatus: 200),
+            logger: CapturingLogHandler.logger(label: "test.options", store: optionsLogs))
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+
+        // The 3 arguments overload is the one the SDK calls when it has no logger to pass.
+        XCTAssertThrowsError(try provider.getBooleanEvaluation(
+            key: "does-not-exist", defaultValue: false, context: defaultEvaluationContext))
+
+        XCTAssertTrue(optionsLogs.messages.contains("no flag found in cache for the key does-not-exist"),
+                      "The provider should fall back on the logger from its options, got: \(optionsLogs.messages)")
+    }
+
+    func testShouldPreferTheLoggerOfTheSDKOverTheOneFromTheOptions() async {
+        let optionsLogs = CapturingLogHandler.Store()
+        let sdkLogs = CapturingLogHandler.Store()
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0,
+            networkService: MockNetworkingService(mockStatus: 200),
+            logger: CapturingLogHandler.logger(label: "test.options", store: optionsLogs))
+        let provider = OfrepProvider(options: options)
+        let api = OpenFeatureAPI()
+        api.setLogger(CapturingLogHandler.logger(label: "test.sdk", store: sdkLogs))
+        await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
+
+        _ = api.getClient().getBooleanDetails(key: "does-not-exist", defaultValue: false)
+
+        let expectedLog = "no flag found in cache for the key does-not-exist"
+        XCTAssertTrue(sdkLogs.messages.contains(expectedLog),
+                      "The logger given by the SDK should be used, got: \(sdkLogs.messages)")
+        XCTAssertFalse(optionsLogs.messages.contains(expectedLog),
+                       "The logger from the options should not be used when the SDK provides one.")
+    }
+}
+
+/// Collects the messages it receives, so that a test can assert on which logger the provider used.
+struct CapturingLogHandler: LogHandler {
+    final class Store {
+        private let lock = NSLock()
+        private var storedMessages: [String] = []
+
+        var messages: [String] {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedMessages
+        }
+
+        func append(_ message: String) {
+            lock.lock()
+            defer { lock.unlock() }
+            storedMessages.append(message)
+        }
+    }
+
+    /// The provider logs its diagnostics at the debug level, which the default log level hides.
+    static func logger(label: String, store: Store) -> Logger {
+        return Logger(label: label) { _ in CapturingLogHandler(store: store) }
+    }
+
+    let store: Store
+    var metadata: Logger.Metadata = [:]
+    var logLevel: Logger.Level = .debug
+
+    subscript(metadataKey key: String) -> Logger.Metadata.Value? {
+        get { metadata[key] }
+        set { metadata[key] = newValue }
+    }
+
+    func log(level: Logger.Level, message: Logger.Message, metadata: Logger.Metadata?,
+             source: String, file: String, function: String, line: UInt) {
+        store.append("\(message)")
     }
 }

@@ -1,13 +1,16 @@
 import Foundation
 import OpenFeature
 import OFREP
+import Logging
 
 class ObjectHook: Hook {
     typealias HookValue = Value
     let dataCollectorMngr: DataCollectorManager
+    let logger: Logger
 
-    init(dataCollectorMngr: DataCollectorManager) {
+    init(dataCollectorMngr: DataCollectorManager, logger: Logger) {
         self.dataCollectorMngr = dataCollectorMngr
+        self.logger = logger
     }
 
     func before<HookValue>(ctx: HookContext<HookValue>, hints: [String: Any]) {
@@ -22,7 +25,7 @@ class ObjectHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let valueRaw = details.value as? Value else {
-            NSLog("Default value is not of type Object")
+            self.logger.warning("Default value is not of type Object")
             return
         }
         let value: JSONValue = valueRaw.toJSONValue()
@@ -46,7 +49,7 @@ class ObjectHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let valueRaw = ctx.defaultValue as? Value else {
-            NSLog("Default value is not of type Object")
+            self.logger.warning("Default value is not of type Object")
             return
         }
         let value: JSONValue = valueRaw.toJSONValue()

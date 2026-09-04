@@ -1,13 +1,16 @@
 import Foundation
 import OpenFeature
 import OFREP
+import Logging
 
 class DoubleHook: Hook {
     typealias HookValue = Double
     let dataCollectorMngr: DataCollectorManager
+    let logger: Logger
 
-    init(dataCollectorMngr: DataCollectorManager) {
+    init(dataCollectorMngr: DataCollectorManager, logger: Logger) {
         self.dataCollectorMngr = dataCollectorMngr
+        self.logger = logger
     }
 
     func before<HookValue>(ctx: HookContext<HookValue>, hints: [String: Any]) {
@@ -22,7 +25,7 @@ class DoubleHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let value = details.value as? Double else {
-            NSLog("Default value is not of type Double")
+            self.logger.warning("Default value is not of type Double")
             return
         }
 
@@ -49,7 +52,7 @@ class DoubleHook: Hook {
         let key = ctx.flagKey
 
         guard let value = ctx.defaultValue as? Double else {
-            NSLog("Default value is not of type Double")
+            self.logger.warning("Default value is not of type Double")
             return
         }
 

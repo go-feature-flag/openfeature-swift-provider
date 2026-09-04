@@ -1,5 +1,6 @@
 import Foundation
 import OFREP
+import Logging
 
 public struct GoFeatureFlagProviderOptions {
     /**
@@ -42,6 +43,13 @@ public struct GoFeatureFlagProviderOptions {
      * default: empty
      */
     public var exporterMetadata: [String:ExporterMetadataValue]? = [:]
+    /**
+     * (optional) logger used by the provider for its own diagnostics.
+     * The logger passed by the OpenFeature SDK during a flag evaluation takes precedence,
+     * except in the data collection hooks, which the SDK gives no logger to.
+     * default: Logger(label: "org.gofeatureflag.provider")
+     */
+    public var logger: Logger?
 
     public init(
         endpoint: String,
@@ -50,7 +58,8 @@ public struct GoFeatureFlagProviderOptions {
         customHeaders: [String:String]? = [:],
         dataFlushInterval: TimeInterval = 600,
         exporterMetadata: [String:ExporterMetadataValue]? = [:],
-        networkService: NetworkingService? = URLSession.shared) {
+        networkService: NetworkingService? = URLSession.shared,
+        logger: Logger? = nil) {
         self.endpoint = endpoint
         self.pollInterval = pollInterval
         self.apiKey = apiKey
@@ -58,5 +67,6 @@ public struct GoFeatureFlagProviderOptions {
         self.networkService = networkService
         self.dataCollectorInterval = dataFlushInterval
         self.exporterMetadata = exporterMetadata
+        self.logger = logger
     }
 }

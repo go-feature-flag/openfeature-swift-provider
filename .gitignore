@@ -91,3 +91,6 @@ iOSInjectionProject/
 
 # SwiftLint baseline (regenerated locally via write_baseline)
 Baseline.json
+
+# Conductor workspace scratch directory
+.context/

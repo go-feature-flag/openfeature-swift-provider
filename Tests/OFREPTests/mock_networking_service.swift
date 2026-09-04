@@ -29,6 +29,43 @@ public class MockNetworkingService: NetworkingService {
 
         var data = mockData ?? Data()
         var headers: [String: String]? = nil
+
+        // Rate limits the second call only, with a retry window short enough for a test, so the
+        // following polls reach the API again and the provider can leave the stale state.
+        if targetingKey == "429-recover" {
+            if callCounter == 2 {
+                let response = HTTPURLResponse(
+                    url: request.url!, statusCode: 429, httpVersion: nil,
+                    headerFields: ["Retry-After": "1"])!
+                return (data, response)
+            }
+            // A fresh ETag every time, so the provider never gets a 304 and always sees changes.
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil,
+                headerFields: ["ETag": "429-recover-\(callCounter)"])!
+            return (data, response)
+        }
+
+        // Answers slowly, so a test can start a second context change while this one is still
+        // in flight and check which of the two responses ends up in the cache.
+        if targetingKey == "slow-context" {
+            try await Task.sleep(nanoseconds: 500_000_000)
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil,
+                headerFields: ["ETag": "slow-context"])!
+            return (data, response)
+        }
+
+        // Same delay as slow-context, but ends in a 429: used to check that a cancelled
+        // reconcile does not emit .stale or install a Retry-After window.
+        if targetingKey == "slow-429" {
+            try await Task.sleep(nanoseconds: 500_000_000)
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 429, httpVersion: nil,
+                headerFields: ["Retry-After": "120"])!
+            return (data, response)
+        }
+
         if mockStatus == 429 || (targetingKey == "429" && callCounter >= 2){
             headers = ["Retry-After": "120"]
             mockStatus = 429

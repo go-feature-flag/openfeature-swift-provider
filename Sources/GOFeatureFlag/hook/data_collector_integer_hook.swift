@@ -1,13 +1,16 @@
 import Foundation
 import OpenFeature
 import OFREP
+import Logging
 
 class IntegerHook: Hook {
     typealias HookValue = Int64
     let dataCollectorMngr: DataCollectorManager
+    let logger: Logger
 
-    init(dataCollectorMngr: DataCollectorManager) {
+    init(dataCollectorMngr: DataCollectorManager, logger: Logger) {
         self.dataCollectorMngr = dataCollectorMngr
+        self.logger = logger
     }
 
     func before<HookValue>(ctx: HookContext<HookValue>, hints: [String: Any]) {
@@ -22,7 +25,7 @@ class IntegerHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let value = details.value as? Int64 else {
-            NSLog("Default value is not of type Integer")
+            self.logger.warning("Default value is not of type Integer")
             return
         }
 
@@ -45,7 +48,7 @@ class IntegerHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let value = ctx.defaultValue as? Int64 else {
-            NSLog("Default value is not of type Integer")
+            self.logger.warning("Default value is not of type Integer")
             return
         }
 
