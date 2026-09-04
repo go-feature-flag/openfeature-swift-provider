@@ -1320,6 +1320,11 @@ class ProviderTests: XCTestCase {
 
         let logged = await waitForLog(logs, containing: "error while polling the OFREP API")
         XCTAssertTrue(logged, "A poll rejected with a 401 should be logged, got: \(logs.messages)")
+
+        // A polling 401/403 is logged but must not flip the provider away from a working state —
+        // deliberately unlike a 401/403 during initialise, which is fatal (nothing is cached yet).
+        XCTAssertEqual(ProviderStatus.ready, provider.status,
+                       "a polling 401 must keep the provider serving its last-good cache, not go fatal")
     }
 
     func testShouldLogWhenPollingReceivesAnErrorResponse() async {

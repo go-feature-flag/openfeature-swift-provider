@@ -319,9 +319,15 @@ public class OfrepProvider: FeatureProvider {
                     case .apiTooManyRequestsError:
                         weakSelf.statusTracker.send(.stale())
                     default:
+                        // Any other polling failure (auth, parse, transport, 5xx) is logged but does
+                        // not change the status: a single failed refresh must not tear down a working
+                        // provider, so it keeps serving the last-good cache. This is deliberately
+                        // different from `initialize`, where a 401/403 is fatal because there is no
+                        // cache to fall back on yet.
                         providerLogger.error("error while polling the OFREP API: \(error)")
                     }
                 } catch {
+                    // Same policy for non-OfrepError failures: log and keep serving the last-good cache.
                     providerLogger.error("error while polling the OFREP API: \(error)")
                 }
             }
