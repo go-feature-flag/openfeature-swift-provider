@@ -89,6 +89,28 @@ class ProviderTests: XCTestCase {
         cancellable.cancel()
     }
 
+    func testShouldThrowAGeneralErrorIfInitialiseReceivesAnUnknownStatus() async {
+        // A 304 on the very first call makes the bulk evaluation report
+        // successNoChanges, which is not a valid state to initialise from.
+        let mockService = MockNetworkingService(mockStatus: 304)
+
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0, // no polling, we only care about the initialisation
+            networkService: mockService
+        )
+        let provider = OfrepProvider(options: options)
+
+        do {
+            try await provider.initialize(initialContext: defaultEvaluationContext)
+            XCTFail("initialize should throw when the status is not successWithChanges")
+        } catch OpenFeatureError.generalError(let message) {
+            XCTAssertEqual("impossible to initialize the provider, receive unknown status", message)
+        } catch {
+            XCTFail("Expected OpenFeatureError.generalError but got: \(error)")
+        }
+    }
+
     func testShouldBeInErrorStatusIfErrorTargetingKeyIsMissing() async {
         let mockResponse = """
 {
