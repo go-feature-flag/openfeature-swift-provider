@@ -9,7 +9,7 @@ class GoFeatureFlagAPI {
     init(networkingService: NetworkingService, options: GoFeatureFlagProviderOptions) {
         self.networkingService = networkingService
         self.options = options
-        
+
         if self.options.exporterMetadata == nil {
             self.options.exporterMetadata = [:]
         }
@@ -35,7 +35,7 @@ class GoFeatureFlagAPI {
         let dataCollectorURL = url.appendingPathComponent("v1/data/collector")
         var request = URLRequest(url: dataCollectorURL)
         request.httpMethod = "POST"
-        
+
         let requestBody = DataCollectorRequest(meta: self.options.exporterMetadata, events: events)
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
