@@ -1418,12 +1418,14 @@ class ProviderTests: XCTestCase {
     /// Task finishes). `Future` replays its result to late subscribers, so this is race-free even
     /// if the work has already completed.
     private func awaitFuture(_ future: Future<Void, Never>) async {
+        // Keep the subscription alive in a local the sink never touches. Assigning to a `var`
+        // and reading it back inside the sink (`withExtendedLifetime`) is a data race: `sink`
+        // can fire on another thread before that assignment is visible to it.
+        var cancellables = Set<AnyCancellable>()
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            var cancellable: AnyCancellable?
-            cancellable = future.sink { _ in
-                withExtendedLifetime(cancellable) {}
+            future.sink { _ in
                 continuation.resume()
-            }
+            }.store(in: &cancellables)
         }
     }
 
