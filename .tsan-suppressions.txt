@@ -1,0 +1,14 @@
+# ThreadSanitizer suppressions.
+#
+# Everything listed here is a race this repository cannot fix. Keep the list
+# empty of our own code: a race in OFREP/ or GOFeatureFlag/ is a bug to fix,
+# not to suppress.
+
+# OpenFeature Swift SDK 0.6.0 races on its own lifecycle bookkeeping inside
+# OpenFeatureAPI.runLifecycle: the state is written on the GCD worker that runs
+# the provider's initialize/onContextSet and read on the worker that resolves the
+# returned Future. Our provider only triggers it by fulfilling its promise
+# (Sources/OFREP/ofrep.swift). It accounted for 25 of the 28 reports on the first
+# TSan run. Drop this entry once the SDK ships a fix.
+race:runLifecycle
+race:OpenFeatureAPI
