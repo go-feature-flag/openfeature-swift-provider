@@ -103,6 +103,40 @@ jobs:
             -scheme GOFeatureFlag \
             -destination 'generic/platform=iOS'
 
+  # `testConcurrentEvaluationAndBackgroundRefreshIsRaceFree` in
+  # Tests/OFREPTests/provider_tests.swift only proves the provider's state lock
+  # removes the cache/context data race when a race detector is actually watching.
+  # Without this job it passes trivially. The whole suite runs (no --filter) so a
+  # race anywhere is caught, not just the one that motivated the lock.
+  #
+  # NOTE: this must be xcodebuild, not `swift test --sanitize=thread`. SwiftPM runs
+  # XCTest bundles by dlopen'ing them into Apple's `xctest` host, which is not
+  # instrumented, so TSan's interceptors never install and the runner dies with
+  # SIGSEGV ("Interceptors are not working ... ThreadSanitizer is loaded too late").
+  # Inserting the runtime by hand with DYLD_INSERT_LIBRARIES is refused outright on
+  # macOS 26 ("Sanitizer load violates platform policy"). xcodebuild builds an
+  # instrumented test runner and wires the environment up itself.
+  thread-sanitizer:
+    name: ThreadSanitizer
+    runs-on: macos-15
+    # TSan slows every memory access; the stress test alone does 8x2000 concurrent
+    # reads against a 10ms polling timer. Bound it so a hang cannot burn a runner.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 16.4
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "16.4"
+
+      - name: Run tests under ThreadSanitizer
+        run: |
+          xcodebuild test \
+            -scheme GOFeatureFlag-Package \
+            -destination 'platform=macOS' \
+            -enableThreadSanitizer YES
+
   lint:
     name: Swift Lint
     runs-on: ubuntu-latest
@@ -115,7 +149,7 @@ jobs:
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
-    needs: [build-test, build-ios, lint]
+    needs: [build-test, build-ios, lint, thread-sanitizer]
     if: always()
     steps:
       - name: Fail if any required job failed
