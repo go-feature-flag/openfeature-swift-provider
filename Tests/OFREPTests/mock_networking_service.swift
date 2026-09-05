@@ -6,7 +6,19 @@ public class MockNetworkingService: NetworkingService {
     var mockData: Data?
     var mockStatus: Int
     var mockURLResponse: URLResponse?
-    var callCounter = 0
+    // The polling timer and reconcile tasks call the mock from background threads while
+    // tests read the counter from the test thread. Guard it with a lock rather than
+    // racing on a bare var (ThreadSanitizer flags the unguarded version).
+    private let lock = NSLock()
+    private var _callCounter = 0
+
+    var callCounter: Int { withLock { _callCounter } }
+
+    private func withLock<T>(_ body: () -> T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return body()
+    }
 
     public init(mockData: Data? = nil, mockStatus: Int = 200, mockURLResponse: URLResponse? = nil) {
         self.mockData = mockData
@@ -18,7 +30,11 @@ public class MockNetworkingService: NetworkingService {
     }
 
     public func doRequest(for request: URLRequest) async throws -> (Data, URLResponse) {
-        callCounter+=1
+        // Take the count once: branching on repeated reads would race with concurrent calls.
+        let callCount = withLock { () -> Int in
+            _callCounter += 1
+            return _callCounter
+        }
         guard let jsonDictionary = try JSONSerialization.jsonObject(with: request.httpBody!, options: []) as? [String: Any] else {
             throw OpenFeatureError.invalidContextError
         }
@@ -33,7 +49,7 @@ public class MockNetworkingService: NetworkingService {
         // Rate limits the second call only, with a retry window short enough for a test, so the
         // following polls reach the API again and the provider can leave the stale state.
         if targetingKey == "429-recover" {
-            if callCounter == 2 {
+            if callCount == 2 {
                 let response = HTTPURLResponse(
                     url: request.url!, statusCode: 429, httpVersion: nil,
                     headerFields: ["Retry-After": "1"])!
@@ -42,7 +58,7 @@ public class MockNetworkingService: NetworkingService {
             // A fresh ETag every time, so the provider never gets a 304 and always sees changes.
             let response = HTTPURLResponse(
                 url: request.url!, statusCode: 200, httpVersion: nil,
-                headerFields: ["ETag": "429-recover-\(callCounter)"])!
+                headerFields: ["ETag": "429-recover-\(callCount)"])!
             return (data, response)
         }
 
@@ -69,7 +85,7 @@ public class MockNetworkingService: NetworkingService {
         // Rate limits every call after the first one, but without a Retry-After header: the
         // provider has no window to respect and has to reach the API again on the next poll.
         if targetingKey == "429-no-retry-after" {
-            if callCounter == 2 {
+            if callCount == 2 {
                 let response = HTTPURLResponse(
                     url: request.url!, statusCode: 429, httpVersion: nil, headerFields: nil)!
                 return (data, response)
@@ -77,14 +93,14 @@ public class MockNetworkingService: NetworkingService {
             // A fresh ETag every time, so the provider never gets a 304 and always sees changes.
             let response = HTTPURLResponse(
                 url: request.url!, statusCode: 200, httpVersion: nil,
-                headerFields: ["ETag": "429-no-retry-after-\(callCounter)"])!
+                headerFields: ["ETag": "429-no-retry-after-\(callCount)"])!
             return (data, response)
         }
 
         // Rate limits every call after the first one with a Retry-After expressed as an
         // HTTP-date far in the future, so the provider must stop calling the API.
         if targetingKey == "429-http-date" {
-            if callCounter == 1 {
+            if callCount == 1 {
                 let response = HTTPURLResponse(
                     url: request.url!, statusCode: 200, httpVersion: nil,
                     headerFields: ["ETag": "429-http-date"])!
@@ -100,7 +116,7 @@ public class MockNetworkingService: NetworkingService {
         // lowercase, as it commonly arrives over HTTP/2. The provider must still honour the window,
         // which requires a case-insensitive header lookup.
         if targetingKey == "429-lowercase-retry-after" {
-            if callCounter == 1 {
+            if callCount == 1 {
                 let response = HTTPURLResponse(
                     url: request.url!, statusCode: 200, httpVersion: nil,
                     headerFields: ["ETag": "429-lowercase-retry-after"])!
@@ -115,7 +131,7 @@ public class MockNetworkingService: NetworkingService {
         // Answers once, then rejects everything with a 401: used both for a context change and
         // for a poll that becomes unauthorized after the provider is initialised.
         if targetingKey == "401-after-first" {
-            if callCounter == 1 {
+            if callCount == 1 {
                 let response = HTTPURLResponse(
                     url: request.url!, statusCode: 200, httpVersion: nil,
                     headerFields: ["ETag": "401-after-first"])!
@@ -129,7 +145,7 @@ public class MockNetworkingService: NetworkingService {
         // Answers once, then returns a bulk evaluation error the server decides on. It is not an
         // OfrepError, so it exercises the paths handling an OpenFeatureError.
         if targetingKey == "error-after-first" {
-            if callCounter == 1 {
+            if callCount == 1 {
                 let response = HTTPURLResponse(
                     url: request.url!, statusCode: 200, httpVersion: nil,
                     headerFields: ["ETag": "error-after-first"])!
@@ -144,18 +160,18 @@ public class MockNetworkingService: NetworkingService {
         // following poll: used to check the provider still starts polling after a failed
         // initialisation and recovers from error to ready once the API answers again.
         if targetingKey == "fail-init-then-recover" {
-            if callCounter == 1 {
+            if callCount == 1 {
                 let response = HTTPURLResponse(
                     url: request.url!, statusCode: 500, httpVersion: nil, headerFields: nil)!
                 return (data, response)
             }
             let response = HTTPURLResponse(
                 url: request.url!, statusCode: 200, httpVersion: nil,
-                headerFields: ["ETag": "fail-init-then-recover-\(callCounter)"])!
+                headerFields: ["ETag": "fail-init-then-recover-\(callCount)"])!
             return (data, response)
         }
 
-        if mockStatus == 429 || (targetingKey == "429" && callCounter >= 2){
+        if mockStatus == 429 || (targetingKey == "429" && callCount >= 2){
             headers = ["Retry-After": "120"]
             mockStatus = 429
             let response = HTTPURLResponse(url: request.url!, statusCode: mockStatus, httpVersion: nil, headerFields: headers)!
@@ -167,7 +183,7 @@ public class MockNetworkingService: NetworkingService {
             headers = ["ETag": "33a64df551425fcc55e4d42a148795d9f25f89d4"]
         }
 
-        if targetingKey == "second-context" || (targetingKey == "test-change-config" && callCounter >= 3){
+        if targetingKey == "second-context" || (targetingKey == "test-change-config" && callCount >= 3){
             headers = ["ETag": "differentEtag33a64df551425fcc55e"]
             data = secondResponse.data(using: .utf8)!
             let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: headers)!
