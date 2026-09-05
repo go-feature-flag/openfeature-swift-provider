@@ -22,7 +22,7 @@ class BooleanHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let value = details.value as? Bool else {
-            NSLog("Default value is not of type Bool")
+            providerLogger.warning("Default value is not of type Bool")
             return
         }
 
@@ -48,7 +48,7 @@ class BooleanHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let value = ctx.defaultValue as? Bool else {
-            NSLog("Default value is not of type Bool")
+            providerLogger.warning("Default value is not of type Bool")
             return
         }
 

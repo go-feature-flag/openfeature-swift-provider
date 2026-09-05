@@ -22,7 +22,7 @@ class DoubleHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let value = details.value as? Double else {
-            NSLog("Default value is not of type Double")
+            providerLogger.warning("Default value is not of type Double")
             return
         }
 
@@ -49,7 +49,7 @@ class DoubleHook: Hook {
         let key = ctx.flagKey
 
         guard let value = ctx.defaultValue as? Double else {
-            NSLog("Default value is not of type Double")
+            providerLogger.warning("Default value is not of type Double")
             return
         }
 

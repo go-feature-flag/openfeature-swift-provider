@@ -48,7 +48,7 @@ class DataCollectorManager {
         do {
             (_, _) = try await self.goffAPI.postDataCollector(events: pending)
         } catch {
-            NSLog("data collector error: \(error)")
+            providerLogger.error("data collector error: \(error)")
         }
     }
 

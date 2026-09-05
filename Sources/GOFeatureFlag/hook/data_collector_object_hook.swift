@@ -22,7 +22,7 @@ class ObjectHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let valueRaw = details.value as? Value else {
-            NSLog("Default value is not of type Object")
+            providerLogger.warning("Default value is not of type Object")
             return
         }
         let value: JSONValue = valueRaw.toJSONValue()
@@ -46,7 +46,7 @@ class ObjectHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let valueRaw = ctx.defaultValue as? Value else {
-            NSLog("Default value is not of type Object")
+            providerLogger.warning("Default value is not of type Object")
             return
         }
         let value: JSONValue = valueRaw.toJSONValue()

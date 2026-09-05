@@ -22,7 +22,7 @@ class IntegerHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let value = details.value as? Int64 else {
-            NSLog("Default value is not of type Integer")
+            providerLogger.warning("Default value is not of type Integer")
             return
         }
 
@@ -45,7 +45,7 @@ class IntegerHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let value = ctx.defaultValue as? Int64 else {
-            NSLog("Default value is not of type Integer")
+            providerLogger.warning("Default value is not of type Integer")
             return
         }
 

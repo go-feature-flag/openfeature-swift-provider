@@ -4,11 +4,26 @@ import OpenFeature
 class OfrepAPI {
     private let networkingService: NetworkingService
     private var etag: String = ""
+    /// `postBulkEvaluateFlags` can run concurrently (the polling timer and a context-change reconcile
+    /// may overlap), so the ETag read/write is serialized to avoid a data race on the `String`.
+    private let etagLock = NSLock()
     private let options: OfrepProviderOptions
 
     init(networkingService: NetworkingService, options: OfrepProviderOptions) {
         self.networkingService = networkingService
         self.options = options
+    }
+
+    private var currentETag: String {
+        self.etagLock.lock()
+        defer { self.etagLock.unlock() }
+        return self.etag
+    }
+
+    private func storeETag(_ value: String) {
+        self.etagLock.lock()
+        defer { self.etagLock.unlock() }
+        self.etag = value
     }
 
     // swiftlint:disable:next function_body_length cyclomatic_complexity
@@ -37,8 +52,9 @@ class OfrepAPI {
             }
         }
 
-        if etag != "" {
-            request.setValue(etag, forHTTPHeaderField: "If-None-Match")
+        let currentETag = self.currentETag
+        if currentETag != "" {
+            request.setValue(currentETag, forHTTPHeaderField: "If-None-Match")
         }
 
         let (data, response) = try await networkingService.doRequest(for: request)
@@ -65,7 +81,7 @@ class OfrepAPI {
         // Store ETag to use it in the next request
         if let etagHeaderValue = httpResponse.value(forHTTPHeaderField: "ETag") {
             if etagHeaderValue != "" && httpResponse.statusCode == 200 {
-                etag = etagHeaderValue
+                self.storeETag(etagHeaderValue)
             }
         }
 

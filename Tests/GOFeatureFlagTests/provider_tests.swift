@@ -5,6 +5,12 @@ import OpenFeature
 @testable import GOFeatureFlag
 
 class GoFeatureFlagProviderTests: XCTestCase {
+    override func tearDown() {
+        // OpenFeatureAPI.shared is global state, do not leak a logger to the other tests.
+        OpenFeatureAPI.shared.setLogger(nil)
+        super.tearDown()
+    }
+
     func testProviderMetadataName() async {
         let options = GoFeatureFlagProviderOptions(endpoint: "https://localhost:1031")
         let provider = GoFeatureFlagProvider(options: options)
@@ -225,6 +231,151 @@ class GoFeatureFlagProviderTests: XCTestCase {
         XCTAssertEqual("apiKey1", request.allHTTPHeaderFields?["X-API-Key"])
     }
   
+    func testShouldEvaluateEveryTypeWithoutALogger() async throws {
+        let mockNetworkService = MockNetworkingService(mockStatus: 200)
+        let provider = GoFeatureFlagProvider(
+            options: GoFeatureFlagProviderOptions(
+                endpoint: "https://localhost:1031",
+                pollInterval: 0,
+                networkService: mockNetworkService
+            )
+        )
+        let evaluationCtx = ImmutableContext(targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0")
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: evaluationCtx)
+
+        // The 3 arguments overloads are the ones a caller uses directly: the SDK always calls the
+        // 4 arguments ones to pass the logger of the evaluation.
+        let boolEval = try provider.getBooleanEvaluation(
+            key: "bool-flag", defaultValue: false, context: evaluationCtx)
+        XCTAssertEqual(true, boolEval.value)
+
+        let stringEval = try provider.getStringEvaluation(
+            key: "string-flag", defaultValue: "default", context: evaluationCtx)
+        XCTAssertEqual("1234value", stringEval.value)
+
+        let intEval = try provider.getIntegerEvaluation(
+            key: "int-flag", defaultValue: 1, context: evaluationCtx)
+        XCTAssertEqual(1234, intEval.value)
+
+        let doubleEval = try provider.getDoubleEvaluation(
+            key: "double-flag", defaultValue: 1.0, context: evaluationCtx)
+        XCTAssertEqual(12.34, doubleEval.value)
+
+        let objectEval = try provider.getObjectEvaluation(
+            key: "object-flag", defaultValue: Value.null, context: evaluationCtx)
+        XCTAssertEqual(
+            Value.structure(["testValue": Value.structure(["toto": Value.integer(1234)])]),
+            objectEval.value)
+    }
+
+    func testShouldForwardTheEvaluationLoggerToTheOfrepProvider() async throws {
+        let logs = CapturingLogHandler.Store()
+        let logger = CapturingLogHandler.logger(label: "test.evaluation", store: logs)
+        let mockNetworkService = MockNetworkingService(mockStatus: 200)
+        let provider = GoFeatureFlagProvider(
+            options: GoFeatureFlagProviderOptions(
+                endpoint: "https://localhost:1031",
+                pollInterval: 0,
+                networkService: mockNetworkService
+            )
+        )
+        let evaluationCtx = ImmutableContext(targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0")
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider, initialContext: evaluationCtx)
+
+        // The 4-argument overload is what the SDK calls to pass the evaluation's logger; the GO Feature
+        // Flag provider must forward it to the OFREP provider that does the work and logs.
+        XCTAssertThrowsError(try provider.getBooleanEvaluation(
+            key: "does-not-exist", defaultValue: false, context: evaluationCtx, logger: logger))
+
+        XCTAssertTrue(logs.messages.contains("no flag found in cache for the key does-not-exist"),
+                      "GoFeatureFlagProvider must forward the evaluation logger to the OFREP provider, "
+                      + "got: \(logs.messages)")
+    }
+
+    func testShouldForwardTheContextChangesAndTheEventsOfTheOfrepProvider() async {
+        let mockNetworkService = MockNetworkingService(mockStatus: 200)
+        let provider = GoFeatureFlagProvider(
+            options: GoFeatureFlagProviderOptions(
+                endpoint: "https://localhost:1031",
+                pollInterval: 0,
+                networkService: mockNetworkService
+            )
+        )
+        let api = OpenFeatureAPI()
+        XCTAssertEqual(ProviderStatus.notReady, provider.status)
+        await api.setProviderAndWait(
+            provider: provider,
+            initialContext: ImmutableContext(targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0"))
+        XCTAssertEqual(ProviderStatus.ready, provider.status)
+
+        var receivedEvents = [ProviderEvent]()
+        let reconciled = expectation(description: "The context change is reconciled")
+        // observe() on the GO Feature Flag provider has to publish what the OFREP provider emits.
+        let cancellable = provider.observe().sink { event in
+            if event == .ready() {
+                return // replay of the current status for a new subscriber
+            }
+            receivedEvents.append(event)
+            if event == .contextChanged() {
+                reconciled.fulfill()
+            }
+        }
+
+        await api.setEvaluationContextAndWait(
+            evaluationContext: ImmutableContext(targetingKey: "5a0e9c1a-0f0a-4b1c-9c1a-0f0a4b1c9c1a"))
+        await fulfillment(of: [reconciled], timeout: 3)
+        cancellable.cancel()
+
+        XCTAssertEqual([.reconciling(), .contextChanged()], receivedEvents)
+        XCTAssertEqual(ProviderStatus.ready, provider.status)
+    }
+
+    func testShouldLogWhenTheDataCollectorCallFails() async {
+        let logs = CapturingLogHandler.Store()
+        OpenFeatureAPI.shared.setLogger(CapturingLogHandler.logger(label: "test.collector", store: logs))
+        let mockNetworkService = MockNetworkingService(mockStatus: 401)
+        let provider = GoFeatureFlagProvider(
+            options: GoFeatureFlagProviderOptions(
+                endpoint: "https://localhost:1031",
+                pollInterval: 0,
+                dataFlushInterval: 1,
+                networkService: mockNetworkService
+            )
+        )
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(
+            provider: provider,
+            initialContext: ImmutableContext(targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0"))
+
+        // A single evaluation: the mock only answers a data collector call with an error when the
+        // batch it receives holds exactly one event.
+        _ = api.getClient().getBooleanDetails(key: "my-flag", defaultValue: false)
+
+        let logged = await waitForLog(logs, containing: "data collector error")
+        XCTAssertTrue(logged,
+                      "A data collector call the relay proxy rejects should be logged, "
+                      + "got: \(logs.messages)")
+    }
+
+    /// Polls until `store` has recorded a message containing `needle`, instead of sleeping a
+    /// fixed interval and hoping the background flush already ran.
+    private func waitForLog(
+        _ store: CapturingLogHandler.Store,
+        containing needle: String,
+        timeout: TimeInterval = 10.0
+    ) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if store.messages.contains(where: { $0.contains(needle) }) {
+                return true
+            }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        return false
+    }
+
     /// Polls until the mock has recorded `count` data collector events, instead
     /// of sleeping a fixed interval and hoping the flush already landed.
     /// The events are recorded asynchronously by a background flush timer, so a

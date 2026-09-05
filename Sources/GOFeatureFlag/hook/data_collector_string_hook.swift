@@ -22,7 +22,7 @@ class StringHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let value = details.value as? String else {
-            NSLog("Default value is not of type String")
+            providerLogger.warning("Default value is not of type String")
             return
         }
 
@@ -48,7 +48,7 @@ class StringHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let value = ctx.defaultValue as? String else {
-            NSLog("Default value is not of type String")
+            providerLogger.warning("Default value is not of type String")
             return
         }
 
