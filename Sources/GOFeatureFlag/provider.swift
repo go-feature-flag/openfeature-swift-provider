@@ -15,6 +15,13 @@ public final class GoFeatureFlagProvider: FeatureProvider {
     private let dataCollectorMngr: DataCollectorManager
     private let options: GoFeatureFlagProviderOptions
 
+    // `initialize`'s subscription has to outlive the closure that creates it. Keeping it in a
+    // local and reading that local back inside the sink is a data race: `sink` can fire on
+    // another GCD thread before the assignment is even visible there (ThreadSanitizer reports
+    // it). Hold it here instead, behind a lock, since the sink never touches this set.
+    private let cancellablesLock = NSLock()
+    private var cancellables = Set<AnyCancellable>()
+
     public init(options: GoFeatureFlagProviderOptions) {
         var networkService: NetworkingService = URLSession.shared
         if let netSer = options.networkService {
@@ -51,10 +58,8 @@ public final class GoFeatureFlagProvider: FeatureProvider {
     public func initialize(initialContext: OpenFeature.EvaluationContext?) -> Future<Void, Never> {
         self.hooks = self.dataCollectorMngr.getHooks()
         return Future { promise in
-            var cancellable: AnyCancellable?
-            cancellable = self.ofrepProvider.initialize(initialContext: initialContext)
+            let cancellable = self.ofrepProvider.initialize(initialContext: initialContext)
                 .sink { _ in
-                    withExtendedLifetime(cancellable) {}
                     if self.options.dataCollectorInterval > 0 {
                         self.hooks.append(
                             BooleanHook(dataCollectorMngr: self.dataCollectorMngr))
@@ -70,6 +75,9 @@ public final class GoFeatureFlagProvider: FeatureProvider {
                     }
                     promise(.success(()))
                 }
+            self.cancellablesLock.lock()
+            self.cancellables.insert(cancellable)
+            self.cancellablesLock.unlock()
         }
     }
 
