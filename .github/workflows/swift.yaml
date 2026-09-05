@@ -146,10 +146,20 @@ jobs:
             halt_on_error=0
             exitcode=66
         run: |
+          set -o pipefail
           xcodebuild test \
             -scheme GOFeatureFlag-Package \
             -destination 'platform=macOS' \
-            -enableThreadSanitizer YES
+            -enableThreadSanitizer YES 2>&1 | tee tsan.log
+
+          # Do not trust the exit code alone. xcodebuild reports success when every
+          # test passes even though the runner exited 66 with races reported, so a
+          # race would slip through an exit-code-only check. Fail on the report text.
+          if grep -q "WARNING: ThreadSanitizer" tsan.log; then
+            echo "::error::ThreadSanitizer reported data races (see log above)"
+            grep -E "SUMMARY: ThreadSanitizer" tsan.log || true
+            exit 1
+          fi
 
   lint:
     name: Swift Lint
