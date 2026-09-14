@@ -159,7 +159,11 @@ class DataCollectorHooksTests: XCTestCase {
 
     /// Reads the buffer of the manager through its own queue: `appendFeatureEvent` writes to it
     /// behind a barrier, so reading `events` directly would race with it.
+    /// The buffer also holds tracking events, only the feature ones are of interest here.
     private func recordedEvents() -> [FeatureEvent] {
-        return manager.queue.sync(flags: .barrier) { manager.events }
+        return manager.queue.sync(flags: .barrier) { manager.events }.compactMap {
+            guard case .feature(let event) = $0 else { return nil }
+            return event
+        }
     }
 }

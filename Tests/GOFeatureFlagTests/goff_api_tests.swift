@@ -11,8 +11,8 @@ class GoffApiTests: XCTestCase {
         let mockService = MockNetworkingService(mockStatus: 200)
         let goffAPI = GoFeatureFlagAPI(networkingService: mockService, options: options)
         
-        let events: [FeatureEvent] = [
-            FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970), key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE")
+        let events: [CollectorEvent] = [
+            .feature(FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970), key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE"))
         ]
         do {
             let (response, _) = try await goffAPI.postDataCollector(events: events)
@@ -26,8 +26,8 @@ class GoffApiTests: XCTestCase {
         let mockService = MockNetworkingService(mockStatus: 401)
         let goffAPI = GoFeatureFlagAPI(networkingService: mockService, options: options)
 
-        let events: [FeatureEvent] = [
-            FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970), key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE")
+        let events: [CollectorEvent] = [
+            .feature(FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970), key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE"))
         ]
         do {
             _ = try await goffAPI.postDataCollector(events: events)
@@ -48,8 +48,8 @@ class GoffApiTests: XCTestCase {
         let mockService = MockNetworkingService(mockStatus: 403)
         let goffAPI = GoFeatureFlagAPI(networkingService: mockService, options: options)
 
-        let events: [FeatureEvent] = [
-            FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970), key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE")
+        let events: [CollectorEvent] = [
+            .feature(FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970), key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE"))
         ]
         do {
             _ = try await goffAPI.postDataCollector(events: events)
@@ -71,9 +71,9 @@ class GoffApiTests: XCTestCase {
         let options = GoFeatureFlagProviderOptions(endpoint: "http://localhost:1031/", apiKey: "apiKey1")
         let goffAPI = GoFeatureFlagAPI(networkingService: mockService, options: options)
 
-        let events: [FeatureEvent] = [
-            FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970), 
-                         key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE")
+        let events: [CollectorEvent] = [
+            .feature(FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970), 
+                         key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE"))
         ]
         do {
             let (response, _) = try await goffAPI.postDataCollector(events: events)
@@ -88,9 +88,9 @@ class GoffApiTests: XCTestCase {
         let options = GoFeatureFlagProviderOptions(endpoint: "http://localhost:1031/", apiKey: "apiKey2")
         let goffAPI = GoFeatureFlagAPI(networkingService: mockService, options: options)
 
-        let events: [FeatureEvent] = [
-            FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970),
-                         key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE")
+        let events: [CollectorEvent] = [
+            .feature(FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970),
+                         key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE"))
         ]
         do {
             (_,_) = try await goffAPI.postDataCollector(events: events)
@@ -112,7 +112,7 @@ class GoffApiTests: XCTestCase {
         let options = GoFeatureFlagProviderOptions(endpoint: "http://localhost:1031/")
         let goffAPI = GoFeatureFlagAPI(networkingService: mockService, options: options)
 
-        let events: [FeatureEvent] = []
+        let events: [CollectorEvent] = []
 
         do {
             let _ = try await goffAPI.postDataCollector(events: events)
@@ -145,9 +145,9 @@ class GoffApiTests: XCTestCase {
         let options = GoFeatureFlagProviderOptions(endpoint: "")
         let goffAPI = GoFeatureFlagAPI(networkingService: mockService, options: options)
 
-        let events: [FeatureEvent] = [
-            FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970),
-                         key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE")
+        let events: [CollectorEvent] = [
+            .feature(FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970),
+                         key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE"))
         ]
         do {
             (_,_) = try await goffAPI.postDataCollector(events: events)
@@ -163,8 +163,8 @@ class GoffApiTests: XCTestCase {
         let mockService = MockNetworkingService(mockStatus: 500)
         let goffAPI = GoFeatureFlagAPI(networkingService: mockService, options: options)
 
-        let events: [FeatureEvent] = [
-            FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970), key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE")
+        let events: [CollectorEvent] = [
+            .feature(FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970), key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE"))
         ]
         do {
             (_, _) = try await goffAPI.postDataCollector(events: events)
@@ -185,9 +185,9 @@ class GoffApiTests: XCTestCase {
         let mockService = MockNetworkingService(mockStatus: 400)
         let options = GoFeatureFlagProviderOptions(endpoint: "http://localhost:1031/")
         let goffAPI = GoFeatureFlagAPI(networkingService: mockService, options: options)
-        let events: [FeatureEvent] = [
-            FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970),
-                         key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE")
+        let events: [CollectorEvent] = [
+            .feature(FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970),
+                         key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE"))
         ]
         do {
             let _ = try await goffAPI.postDataCollector(events: events)
@@ -212,9 +212,9 @@ class GoffApiTests: XCTestCase {
         )
         let goffAPI = GoFeatureFlagAPI(networkingService: mockService, options: options)
 
-        let events: [FeatureEvent] = [
-            FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970),
-                         key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE")
+        let events: [CollectorEvent] = [
+            .feature(FeatureEvent(kind: "feature", userKey: "981f2662-1fb4-4732-ac6d-8399d9205aa9", creationDate: Int64(Date().timeIntervalSince1970),
+                         key: "flag-1", variation: "enabled", value: JSONValue.bool(true), default: false, version: nil, source: "PROVIDER_CACHE"))
         ]
 
         do {

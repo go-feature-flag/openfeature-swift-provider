@@ -3,7 +3,7 @@ import OpenFeature
 import Combine
 
 class DataCollectorManager {
-    var events: [FeatureEvent] = []
+    var events: [CollectorEvent] = []
     var hooks: [any Hook] = []
     let queue = DispatchQueue(label: "org.gofeatureflag.feature.events", attributes: .concurrent)
     let goffAPI: GoFeatureFlagAPI
@@ -28,6 +28,14 @@ class DataCollectorManager {
     }
 
     func appendFeatureEvent(event: FeatureEvent) {
+        self.appendEvent(event: .feature(event))
+    }
+
+    func appendTrackingEvent(event: TrackingEvent) {
+        self.appendEvent(event: .tracking(event))
+    }
+
+    private func appendEvent(event: CollectorEvent) {
         self.queue.async(flags:.barrier) {
             self.events.append(event)
         }
@@ -39,7 +47,7 @@ class DataCollectorManager {
         // of `events` and the `events = []` after the network call were not
         // synchronised with appendFeatureEvent: any event recorded while a
         // post was in flight was silently discarded.
-        let pending: [FeatureEvent] = self.queue.sync(flags: .barrier) {
+        let pending: [CollectorEvent] = self.queue.sync(flags: .barrier) {
             let current = self.events
             self.events = []
             return current
