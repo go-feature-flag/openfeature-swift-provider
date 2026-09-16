@@ -4,6 +4,7 @@ import Foundation
 @testable import OpenFeature
 @testable import OFREP
 @testable import GOFeatureFlag
+import TestSupport
 
 /// The SDK dispatches a hook only for the flag type it declares (`supportsFlagValueType`), so the
 /// guards protecting the data collector hooks against a value of another type can only be reached
@@ -159,7 +160,11 @@ class DataCollectorHooksTests: XCTestCase {
 
     /// Reads the buffer of the manager through its own queue: `appendFeatureEvent` writes to it
     /// behind a barrier, so reading `events` directly would race with it.
+    /// The buffer also holds tracking events, only the feature ones are of interest here.
     private func recordedEvents() -> [FeatureEvent] {
-        return manager.queue.sync(flags: .barrier) { manager.events }
+        return manager.queue.sync(flags: .barrier) { manager.events }.compactMap {
+            guard case .feature(let event) = $0 else { return nil }
+            return event
+        }
     }
 }

@@ -214,6 +214,52 @@ public final class GoFeatureFlagProvider: FeatureProvider {
             logger: logger)
     }
 
+    /// Sends a tracking event to the GO Feature Flag relay proxy.
+    ///
+    /// The event is buffered by the data collector and flushed with the feature events, so it
+    /// respects the `dataFlushInterval` option. Tracking events are ingested by the relay proxy
+    /// since v1.45.0.
+    public func track(
+        key: String,
+        context: (any OpenFeature.EvaluationContext)?,
+        details: (any OpenFeature.TrackingEventDetails)?) throws {
+        // When the data collector is disabled there is no buffer to attach the event to, this
+        // mirrors `initialize` which only starts the manager when dataCollectorInterval > 0.
+        guard self.options.dataCollectorInterval > 0 else {
+            providerLogger.warning(
+                "tracking event \(key) ignored: the data collector is disabled (dataFlushInterval is 0)")
+            return
+        }
+
+        let targetingKey = context?.getTargetingKey() ?? ""
+        let isAnonymous = context?.getValue(key: "anonymous")?.asBoolean() ?? false
+
+        // `asMap()` leaves the targeting key out, it is re-inserted here the same way
+        // `EvaluationRequest.convertEvaluationContext` does for the flag evaluations. The targeting
+        // key of the context wins over a custom attribute that happens to be named `targetingKey`.
+        var evaluationContext = context?.asMap().mapValues { $0.toJSONValue() } ?? [:]
+        if !targetingKey.isEmpty {
+            evaluationContext["targetingKey"] = .string(targetingKey)
+        }
+
+        // The other providers flatten the numeric value of the details into a `value` field, so the
+        // typed value wins over a custom attribute that happens to be named `value`.
+        var trackingEventDetails = details?.asMap().mapValues { $0.toJSONValue() } ?? [:]
+        if let value = details?.getValue() {
+            trackingEventDetails["value"] = .double(value)
+        }
+
+        self.dataCollectorMngr.appendTrackingEvent(
+            event: TrackingEvent(
+                kind: "tracking",
+                contextKind: isAnonymous ? "anonymousUser" : "user",
+                userKey: targetingKey.isEmpty ? "undefined-targetingKey" : targetingKey,
+                creationDate: Int64(Date().timeIntervalSince1970),
+                key: key,
+                evaluationContext: evaluationContext,
+                trackingEventDetails: trackingEventDetails))
+    }
+
     public func observe() -> AnyPublisher<OpenFeature.ProviderEvent, Never> {
         return self.ofrepProvider.observe()
     }

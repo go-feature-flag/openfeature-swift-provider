@@ -21,6 +21,7 @@ For documentation related to flags management in GO Feature Flag, refer to the [
 - Prefetch and cache flag evaluations in order to give the flag value in a efficient way.
 - Automatic configuration changes polling, to be informed as soon as a flag configuration has changed.
 - Automatic data collection about which flags have been accessed by the application
+- Send custom tracking events with the OpenFeature tracking API
 
 
 ## Dependency Setup
@@ -123,6 +124,43 @@ client.getObjectValue(key: "my-flag", defaultValue: Value.structure(["key":Value
 > [!NOTE]  
 > If you add a new flag in GO Feature Flag, expect some delay before having it available for the provider.
 > Refreshing the cache from remote happens when setting a new provider and/or evaluation context in the global OpenFeatureAPI, but also when a configuration change is detected during the polling.
+
+### Track events
+
+The [OpenFeature tracking API](https://openfeature.dev/docs/reference/concepts/tracking/) lets you associate
+custom actions or outcomes of your application with the evaluation context used for the flag evaluations.
+
+```swift
+let client = OpenFeatureAPI.shared.getClient()
+
+// An event without any detail
+client.track(key: "page-visited")
+
+// An event with a numeric value and custom attributes
+client.track(
+    key: "cart-checkout",
+    details: ImmutableTrackingEventDetails(
+        value: 99.99,
+        structure: ImmutableStructure(attributes: ["currency": Value.string("EUR")])))
+```
+
+The tracking events are buffered and sent to the relay proxy along with the flag evaluation data, so they are
+flushed every `dataFlushInterval`. Setting `dataFlushInterval` to `0` disables the data collection entirely,
+and the tracking events are then ignored.
+
+If your evaluation context contains an `anonymous` attribute set to `true`, the event is reported with the
+`anonymousUser` context kind instead of `user`.
+
+```swift
+OpenFeatureAPI.shared.setEvaluationContext(
+    evaluationContext: ImmutableContext(
+        targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0",
+        structure: ImmutableStructure(attributes: ["anonymous": Value.boolean(true)])))
+```
+
+> [!NOTE]
+> The relay proxy ingests the tracking events since **v1.44.0**, and forwards them to the exporters you have
+> configured.
 
 ### Handling Provider Events
 
