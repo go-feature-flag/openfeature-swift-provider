@@ -41,16 +41,28 @@ let package = Package(
             ],
             plugins:[]
         ),
+        // Helpers shared by the two test targets. Not a product: it is only reachable from the
+        // test targets, so it is never built for consumers of the package.
+        .target(
+            name: "TestSupport",
+            dependencies: [
+                .product(name: "OpenFeature", package: "swift-sdk"),
+                .product(name: "Logging", package: "swift-log")
+            ],
+            path: "Tests/TestSupport"
+        ),
         .testTarget(
             name: "GOFeatureFlagTests",
             dependencies: [
-                "GOFeatureFlag"
+                "GOFeatureFlag",
+                "TestSupport"
             ]
         ),
         .testTarget(
             name: "OFREPTests",
             dependencies: [
-                "OFREP"
+                "OFREP",
+                "TestSupport"
             ]
         )
     ]

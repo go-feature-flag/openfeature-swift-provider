@@ -3,6 +3,7 @@ import Foundation
 import OpenFeature
 import OFREP
 @testable import GOFeatureFlag
+import TestSupport
 
 /// The tracking API of the SDK forwards to `GoFeatureFlagProvider.track`, which buffers the event
 /// in the data collector. These tests drive the whole path and assert on what is really sent to

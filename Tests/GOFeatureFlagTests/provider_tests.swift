@@ -3,6 +3,7 @@ import Combine
 import Foundation
 import OpenFeature
 @testable import GOFeatureFlag
+import TestSupport
 
 class GoFeatureFlagProviderTests: XCTestCase {
     override func tearDown() {

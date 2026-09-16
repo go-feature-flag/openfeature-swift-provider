@@ -4,6 +4,7 @@ import Foundation
 @testable import OpenFeature
 @testable import OFREP
 @testable import GOFeatureFlag
+import TestSupport
 
 /// The SDK dispatches a hook only for the flag type it declares (`supportsFlagValueType`), so the
 /// guards protecting the data collector hooks against a value of another type can only be reached
