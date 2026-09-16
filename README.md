@@ -29,7 +29,7 @@ For documentation related to flags management in GO Feature Flag, refer to the [
 
 In the dependencies section of `Package.swift` add:
 ```swift
-.package(url: "https://github.com/go-feature-flag/openfeature-swift-provider.git", from: "0.5.0")
+.package(url: "https://github.com/go-feature-flag/openfeature-swift-provider.git", from: "0.5.0") // x-release-please-version
 ```
 
 and in the target dependencies section add:
@@ -170,6 +170,21 @@ OpenFeatureAPI.shared.setLogger(Logger(label: "org.gofeatureflag.provider"))
 
 If no logger is set on the SDK, the provider falls back on a default
 `Logger(label: "org.gofeatureflag.provider")`.
+
+## Releasing
+
+Releases are managed by [release-please](https://github.com/googleapis/release-please). Do not tag or
+create a GitHub Release by hand.
+
+Every merge to `main` refreshes an open pull request titled `chore(main): release X.Y.Z`. It computes
+the next version from the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
+merged since the last release, updates `CHANGELOG.md`, and bumps the version in the Swift Package
+Manager snippet above. Merging that pull request creates the `vX.Y.Z` tag and the GitHub Release,
+which is all Swift Package Manager consumers need.
+
+Because PR titles are squashed into the commit subject, the title of each pull request decides the
+version bump: `fix:` bumps the patch, `feat:` the minor, and a `!` suffix or a `BREAKING CHANGE:`
+footer the major.
 
 ## Thanks
 _This project is tested with BrowserStack_.
