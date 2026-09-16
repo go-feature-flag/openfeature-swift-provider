@@ -30,7 +30,7 @@ For documentation related to flags management in GO Feature Flag, refer to the [
 
 In the dependencies section of `Package.swift` add:
 ```swift
-.package(url: "https://github.com/go-feature-flag/openfeature-swift-provider.git", from: "0.5.0") // x-release-please-version
+.package(url: "https://github.com/go-feature-flag/openfeature-swift-provider.git", from: "0.6.0") // x-release-please-version
 ```
 
 and in the target dependencies section add:
