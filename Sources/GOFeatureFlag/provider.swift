@@ -234,11 +234,16 @@ public final class GoFeatureFlagProvider: FeatureProvider {
         let targetingKey = context?.getTargetingKey() ?? ""
         let isAnonymous = context?.getValue(key: "anonymous")?.asBoolean() ?? false
 
+        // `asMap()` leaves the targeting key out, it is re-inserted here the same way
+        // `EvaluationRequest.convertEvaluationContext` does for the flag evaluations. The targeting
+        // key of the context wins over a custom attribute that happens to be named `targetingKey`.
         var evaluationContext = context?.asMap().mapValues { $0.toJSONValue() } ?? [:]
         if !targetingKey.isEmpty {
             evaluationContext["targetingKey"] = .string(targetingKey)
         }
 
+        // The other providers flatten the numeric value of the details into a `value` field, so the
+        // typed value wins over a custom attribute that happens to be named `value`.
         var trackingEventDetails = details?.asMap().mapValues { $0.toJSONValue() } ?? [:]
         if let value = details?.getValue() {
             trackingEventDetails["value"] = .double(value)

@@ -5,7 +5,7 @@ import OFREP
 /// It is collected in the same buffer as the `FeatureEvent` and sent to the relay proxy data
 /// collector endpoint.
 ///
-/// Note: the relay proxy ingests tracking events since v1.45.0.
+/// Note: the relay proxy ingests tracking events since v1.44.0.
 struct TrackingEvent: Codable {
     // Kind for a tracking event is tracking.
     var kind: String
@@ -29,4 +29,17 @@ struct TrackingEvent: Codable {
 
     // TrackingEventDetails is the data pertinent to this particular tracking event.
     var trackingEventDetails: [String: JSONValue]
+
+    /// The keys are the wire contract with the relay proxy, they match the JSON tags of the
+    /// `exporter.TrackingEvent` Go struct. They are spelled out so that renaming a property here
+    /// cannot silently change the payload.
+    enum CodingKeys: String, CodingKey {
+        case kind
+        case contextKind
+        case userKey
+        case creationDate
+        case key
+        case evaluationContext
+        case trackingEventDetails
+    }
 }

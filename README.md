@@ -148,8 +148,18 @@ The tracking events are buffered and sent to the relay proxy along with the flag
 flushed every `dataFlushInterval`. Setting `dataFlushInterval` to `0` disables the data collection entirely,
 and the tracking events are then ignored.
 
+If your evaluation context contains an `anonymous` attribute set to `true`, the event is reported with the
+`anonymousUser` context kind instead of `user`.
+
+```swift
+OpenFeatureAPI.shared.setEvaluationContext(
+    evaluationContext: ImmutableContext(
+        targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0",
+        structure: ImmutableStructure(attributes: ["anonymous": Value.boolean(true)])))
+```
+
 > [!NOTE]
-> The relay proxy ingests the tracking events since **v1.45.0**, and forwards them to the exporters you have
+> The relay proxy ingests the tracking events since **v1.44.0**, and forwards them to the exporters you have
 > configured.
 
 ### Handling Provider Events

@@ -96,7 +96,7 @@ class TrackingTests: XCTestCase {
         XCTAssertEqual([:], event.evaluationContext, "An empty targeting key is not worth sending.")
     }
 
-    func testShouldSendTrackingAndFeatureEventsInTheSameBatch() async throws {
+    func testShouldSendTrackingAndFeatureEventsInTheSameBuffer() async throws {
         let mockNetworkService = MockNetworkingService(mockStatus: 200)
         let api = OpenFeatureAPI()
         await api.setProviderAndWait(
@@ -130,12 +130,137 @@ class TrackingTests: XCTestCase {
             initialContext: ImmutableContext(targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0"))
 
         api.getClient().track(key: "cart-checkout")
-        try await Task.sleep(nanoseconds: 500_000_000)
 
+        // `CapturingLogHandler` is installed on `OpenFeatureAPI.shared`, which OFREP also logs to,
+        // so assert that the message is present rather than that it is the only one.
+        let expected =
+            "tracking event cart-checkout ignored: the data collector is disabled (dataFlushInterval is 0)"
+        await waitFor(timeout: 5.0) { logs.messages.contains(expected) }
+        XCTAssertTrue(
+            logs.messages.contains(expected),
+            "expected the disabled data collector warning, got \(logs.messages)")
         XCTAssertEqual(0, mockNetworkService.dataCollectorCallCounter)
+    }
+
+    func testShouldSendATrackingEventWithoutAnyEvaluationContext() async throws {
+        let mockNetworkService = MockNetworkingService(mockStatus: 200)
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: provider(mockNetworkService))
+
+        api.getClient().track(key: "page-visited")
+
+        await waitForDataCollectorEvents(mockNetworkService, count: 1)
+        let event = try XCTUnwrap(trackingEvents(mockNetworkService).first)
+
+        XCTAssertEqual("page-visited", event.key)
+        XCTAssertEqual("undefined-targetingKey", event.userKey)
+        XCTAssertEqual("user", event.contextKind)
+        XCTAssertEqual([:], event.evaluationContext)
+        XCTAssertEqual([:], event.trackingEventDetails)
+    }
+
+    func testShouldSendNonScalarContextAndDetailsAttributes() async throws {
+        let mockNetworkService = MockNetworkingService(mockStatus: 200)
+        let api = OpenFeatureAPI()
+        let date = Date(timeIntervalSince1970: 1_700_000_000)
+        // `Value.date` is deliberately not in the evaluation context: the OFREP bulk evaluation
+        // request serializes the context with `JSONSerialization`, which cannot encode a `Date`
+        // and traps the process. Tracking details take the `JSONValue` path and are unaffected.
+        await api.setProviderAndWait(
+            provider: provider(mockNetworkService),
+            initialContext: ImmutableContext(
+                targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0",
+                structure: ImmutableStructure(attributes: [
+                    "roles": Value.list([Value.string("admin"), Value.string("beta")]),
+                    "address": Value.structure(["city": Value.string("Paris")])
+                ])))
+
+        api.getClient().track(
+            key: "cart-checkout",
+            details: ImmutableTrackingEventDetails(
+                structure: ImmutableStructure(attributes: [
+                    "items": Value.list([Value.string("book"), Value.integer(3)]),
+                    "shipping": Value.structure(["express": Value.boolean(true)]),
+                    "orderedAt": Value.date(date)
+                ])))
+
+        await waitForDataCollectorEvents(mockNetworkService, count: 1)
+        let event = try XCTUnwrap(trackingEvents(mockNetworkService).first)
+
         XCTAssertEqual(
-            ["tracking event cart-checkout ignored: the data collector is disabled (dataFlushInterval is 0)"],
-            logs.messages)
+            JSONValue.array([.string("admin"), .string("beta")]), event.evaluationContext["roles"])
+        XCTAssertEqual(
+            JSONValue.object(["city": .string("Paris")]), event.evaluationContext["address"])
+        XCTAssertEqual(
+            JSONValue.array([.string("book"), .integer(3)]), event.trackingEventDetails["items"])
+        // `Value.date` is exported through `toJSONValue()` as a time interval since the reference
+        // date, not since the Unix epoch. Pinned here so a change to that mapping is deliberate.
+        XCTAssertEqual(
+            date.timeIntervalSinceReferenceDate,
+            try XCTUnwrap(numeric(event.trackingEventDetails["orderedAt"])),
+            accuracy: 0.0001)
+        XCTAssertEqual(
+            JSONValue.object(["express": .bool(true)]), event.trackingEventDetails["shipping"])
+    }
+
+    func testShouldLetTheTypedValueWinOverACustomAttributeNamedValue() async throws {
+        let mockNetworkService = MockNetworkingService(mockStatus: 200)
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(
+            provider: provider(mockNetworkService),
+            initialContext: ImmutableContext(targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0"))
+
+        api.getClient().track(
+            key: "cart-checkout",
+            details: ImmutableTrackingEventDetails(
+                value: 12.5, structure: ImmutableStructure(attributes: ["value": Value.string("ignored")])))
+
+        await waitForDataCollectorEvents(mockNetworkService, count: 1)
+        let event = try XCTUnwrap(trackingEvents(mockNetworkService).first)
+
+        XCTAssertEqual(
+            ["value": JSONValue.double(12.5)],
+            event.trackingEventDetails,
+            "The numeric value of the details wins over a custom attribute of the same name.")
+    }
+
+    /// The field names are the contract with the relay proxy data collector: they have to keep
+    /// matching the JSON tags of the `exporter.TrackingEvent` Go struct. `collectedEvents` decodes
+    /// through `TrackingEvent` itself, so it cannot catch a rename, this asserts on the raw body.
+    func testShouldSendTheFieldNamesExpectedByTheRelayProxy() async throws {
+        let mockNetworkService = MockNetworkingService(mockStatus: 200)
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(
+            provider: provider(mockNetworkService),
+            initialContext: ImmutableContext(targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0"))
+
+        api.getClient().track(
+            key: "cart-checkout",
+            details: ImmutableTrackingEventDetails(
+                value: 99.99, structure: ImmutableStructure(attributes: ["currency": Value.string("EUR")])))
+
+        await waitForDataCollectorEvents(mockNetworkService, count: 1)
+
+        let body = try XCTUnwrap(
+            mockNetworkService.requests
+                .filter { $0.url?.absoluteString.contains("/v1/data/collector") ?? false }
+                .compactMap { $0.httpBody }
+                .first)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        let events = try XCTUnwrap(json["events"] as? [[String: Any]])
+        let event = try XCTUnwrap(events.first { $0["kind"] as? String == "tracking" })
+
+        XCTAssertEqual(
+            ["kind", "contextKind", "userKey", "creationDate", "key", "evaluationContext",
+             "trackingEventDetails"].sorted(),
+            event.keys.sorted())
+        XCTAssertEqual("cart-checkout", event["key"] as? String)
+        XCTAssertEqual("user", event["contextKind"] as? String)
+        XCTAssertEqual("ede04e44-463d-40d1-8fc0-b1d6855578d0", event["userKey"] as? String)
+        XCTAssertEqual(
+            99.99,
+            try XCTUnwrap((event["trackingEventDetails"] as? [String: Any])?["value"] as? Double),
+            accuracy: 0.0001)
     }
 
     private func provider(
@@ -173,6 +298,27 @@ class TrackingTests: XCTestCase {
             .compactMap { $0.httpBody }
         XCTAssertFalse(bodies.isEmpty, "no data collector request recorded", file: file, line: line)
         return try bodies.flatMap { try JSONDecoder().decode(DataCollectorRequest.self, from: $0).events ?? [] }
+    }
+
+    /// `JSONValue.init(from:)` tries `Int64` before `Double`, so a whole number always decodes
+    /// back as `.integer` whichever case was encoded. Compare numbers, not cases.
+    private func numeric(_ value: JSONValue?) -> Double? {
+        switch value {
+        case .integer(let int64): return Double(int64)
+        case .double(let double): return double
+        default: return nil
+        }
+    }
+
+    /// Polls `condition` instead of sleeping for a fixed duration.
+    private func waitFor(timeout: TimeInterval, _ condition: () -> Bool) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() {
+                return
+            }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
     }
 
     private func waitForDataCollectorEvents(
