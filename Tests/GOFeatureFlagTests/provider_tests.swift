@@ -310,7 +310,7 @@ class GoFeatureFlagProviderTests: XCTestCase {
             initialContext: ImmutableContext(targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0"))
         XCTAssertEqual(ProviderStatus.ready, provider.status)
 
-        var receivedEvents = [ProviderEvent]()
+        let receivedEvents = ReceivedEvents()
         let reconciled = expectation(description: "The context change is reconciled")
         // observe() on the GO Feature Flag provider has to publish what the OFREP provider emits.
         let cancellable = provider.observe().sink { event in
@@ -328,7 +328,7 @@ class GoFeatureFlagProviderTests: XCTestCase {
         await fulfillment(of: [reconciled], timeout: 3)
         cancellable.cancel()
 
-        XCTAssertEqual([.reconciling(), .contextChanged()], receivedEvents)
+        XCTAssertEqual([.reconciling(), .contextChanged()], receivedEvents.all)
         XCTAssertEqual(ProviderStatus.ready, provider.status)
     }
 

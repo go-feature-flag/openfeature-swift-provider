@@ -81,7 +81,7 @@ class ProviderTests: XCTestCase {
         let provider = OfrepProvider(options: options)
         let api = OpenFeatureAPI()
 
-        var receivedEvents = [ProviderEvent]()
+        let receivedEvents = ReceivedEvents()
         let expectation = XCTestExpectation(description: "waiting for the error event")
         let cancellable = provider.observe().sink { event in
             receivedEvents.append(event)
@@ -94,7 +94,7 @@ class ProviderTests: XCTestCase {
         // Assert on a stable message instead of the OS-generated bridged NSError string.
         XCTAssertEqual(
             [.error(ProviderEventDetails(message: "the OFREP API returned too many requests (429)"))],
-            receivedEvents)
+            receivedEvents.all)
         XCTAssertEqual(ProviderStatus.error, api.getProviderStatus())
     }
 
@@ -111,7 +111,7 @@ class ProviderTests: XCTestCase {
         let provider = OfrepProvider(options: options)
 
         let expectation = XCTestExpectation(description: "waiting for the error event")
-        var receivedEvents = [ProviderEvent]()
+        let receivedEvents = ReceivedEvents()
         let cancellable = provider.observe().sink { event in
             receivedEvents.append(event)
             expectation.fulfill()
@@ -127,7 +127,7 @@ class ProviderTests: XCTestCase {
                     message: "General error: the initial bulk evaluation returned no changes (HTTP 304) but the cache is empty",
                     errorCode: .general))
         ]
-        XCTAssertEqual(receivedEvents, expectedEvents)
+        XCTAssertEqual(receivedEvents.all, expectedEvents)
         XCTAssertEqual(provider.status, ProviderStatus.error)
     }
 
@@ -394,13 +394,12 @@ class ProviderTests: XCTestCase {
 
         let expectation1 = expectation(description: "event 1")
         let expectation2 = expectation(description: "event 2")
-        var receivedEvents = [ProviderEvent]()
+        let receivedEvents = ReceivedEvents()
         api.observe().sink{ event in
             if event == .ready() {
                 return // The API replays the current ready status to new subscribers.
             }
-            receivedEvents.append(event)
-            switch receivedEvents.count{
+            switch receivedEvents.append(event) {
             case 1:
                 expectation1.fulfill()
             case 2:
@@ -413,7 +412,7 @@ class ProviderTests: XCTestCase {
         api.setEvaluationContext(evaluationContext: newContext)
         await fulfillment(of:[expectation1, expectation2], timeout: 5)
         let expectedEvents: [ProviderEvent] = [.reconciling(), .contextChanged()]
-        XCTAssertEqual(receivedEvents, expectedEvents, "The events were not received in the expected order.")
+        XCTAssertEqual(receivedEvents.all, expectedEvents, "The events were not received in the expected order.")
 
         let details2 = client.getBooleanDetails(key: "my-flag", defaultValue: false)
         XCTAssertEqual(details2.errorCode, nil)
@@ -440,10 +439,9 @@ class ProviderTests: XCTestCase {
     
         let expectation1 = expectation(description: "Ready event")
         let expectation2 = expectation(description: "Stale event")
-        var receivedEvents = [ProviderEvent]()
+        let receivedEvents = ReceivedEvents()
         api.observe().sink{ event in
-            receivedEvents.append(event)
-            switch receivedEvents.count{
+            switch receivedEvents.append(event) {
             case 1:
                 expectation1.fulfill()
             case 2:
@@ -455,7 +453,7 @@ class ProviderTests: XCTestCase {
         await api.setProviderAndWait(provider: provider, initialContext: ctx)
         await fulfillment(of:[expectation1, expectation2], timeout: 5)
         let expectedEvents: [ProviderEvent] = [.ready(), .stale()]
-        XCTAssertEqual(receivedEvents, expectedEvents, "The events were not received in the expected order.")
+        XCTAssertEqual(receivedEvents.all, expectedEvents, "The events were not received in the expected order.")
         XCTAssertEqual(2, mockService.callCounter, "we should stop calling the API if we got a 429")
     }
 
@@ -500,13 +498,12 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(details.variant, "variantA")
 
         let expectation1 = expectation(description: "ConfigurationChanged event")
-        var receivedEvents = [ProviderEvent]()
+        let receivedEvents = ReceivedEvents()
         api.observe().sink{ event in
             if event == .ready() {
                 return // The API replays the current ready status to new subscribers.
             }
-            receivedEvents.append(event)
-            switch receivedEvents.count{
+            switch receivedEvents.append(event) {
             case 1:
                 expectation1.fulfill()
             default:
@@ -515,7 +512,7 @@ class ProviderTests: XCTestCase {
         }.store(in: &cancellables)
         await fulfillment(of:[expectation1], timeout: 5)
         let expectedEvents: [ProviderEvent] = [.configurationChanged()]
-        XCTAssertEqual(receivedEvents, expectedEvents, "The events were not received in the expected order.")
+        XCTAssertEqual(receivedEvents.all, expectedEvents, "The events were not received in the expected order.")
 
         let details2 = client.getBooleanDetails(key: "my-flag", defaultValue: false)
         XCTAssertEqual(details2.errorCode, nil)
@@ -854,10 +851,9 @@ class ProviderTests: XCTestCase {
 
         let staleExpectation = expectation(description: "Stale event")
         let recoveredExpectation = expectation(description: "Ready event after the retry window")
-        var receivedEvents = [ProviderEvent]()
+        let receivedEvents = ReceivedEvents()
         api.observe().sink { event in
-            receivedEvents.append(event)
-            switch receivedEvents.count {
+            switch receivedEvents.append(event) {
             case 2:
                 staleExpectation.fulfill()
             case 3:
@@ -870,7 +866,7 @@ class ProviderTests: XCTestCase {
         await api.setProviderAndWait(provider: provider, initialContext: ctx)
         await fulfillment(of: [staleExpectation, recoveredExpectation], timeout: 10)
 
-        XCTAssertEqual([.ready(), .stale(), .ready()], Array(receivedEvents.prefix(3)),
+        XCTAssertEqual([.ready(), .stale(), .ready()], receivedEvents.prefix(3),
                        "The provider should report itself ready again once the API answers.")
         XCTAssertEqual(ProviderStatus.ready, api.getProviderStatus(),
                        "The provider should not stay stale once the retry window has passed.")
@@ -919,7 +915,7 @@ class ProviderTests: XCTestCase {
         let api = OpenFeatureAPI()
         await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
 
-        var receivedEvents = [ProviderEvent]()
+        let receivedEvents = ReceivedEvents()
         let contextChanged = expectation(description: "Winning context finished reconciling")
         api.observe().sink { event in
             if event == .ready() {
@@ -938,7 +934,7 @@ class ProviderTests: XCTestCase {
         await fulfillment(of: [contextChanged], timeout: 3)
         try? await Task.sleep(nanoseconds: 700_000_000)
 
-        XCTAssertEqual([.reconciling(), .reconciling(), .contextChanged()], receivedEvents,
+        XCTAssertEqual([.reconciling(), .reconciling(), .contextChanged()], receivedEvents.all,
                        "A cancelled 429 must not emit .stale after the winning reconcile.")
         XCTAssertEqual(ProviderStatus.ready, api.getProviderStatus())
         let details = api.getClient().getBooleanDetails(key: "my-flag", defaultValue: true)
@@ -975,7 +971,7 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(ProviderStatus.stale, api.getProviderStatus())
 
         let callsBefore = mockService.callCounter
-        var events = [ProviderEvent]()
+        let events = ReceivedEvents()
         var seenReconciling = false
         let rateLimitedReconcile = expectation(description: "Rate-limited context change settles")
         api.observe().sink { event in
@@ -997,7 +993,7 @@ class ProviderTests: XCTestCase {
 
         XCTAssertEqual(callsBefore, mockService.callCounter,
                        "A rate-limited reconcile must not hit the API.")
-        XCTAssertEqual([.reconciling(), .stale()], events,
+        XCTAssertEqual([.reconciling(), .stale()], events.all,
                        "Rate-limited onContextSet must emit .stale, not .contextChanged.")
         XCTAssertEqual(ProviderStatus.stale, api.getProviderStatus())
     }
@@ -1088,7 +1084,7 @@ class ProviderTests: XCTestCase {
         let api = OpenFeatureAPI()
         await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
 
-        var receivedEvents = [ProviderEvent]()
+        let receivedEvents = ReceivedEvents()
         let errorReceived = expectation(description: "The rejected context change reports an error")
         api.observe().sink { event in
             if event == .ready() {
@@ -1122,7 +1118,7 @@ class ProviderTests: XCTestCase {
         let api = OpenFeatureAPI()
         await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
 
-        var receivedEvents = [ProviderEvent]()
+        let receivedEvents = ReceivedEvents()
         let errorReceived = expectation(description: "The rejected context change reports an error")
         api.observe().sink { event in
             if event == .ready() {
@@ -1142,7 +1138,7 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(
             [.reconciling(),
              .error(ProviderEventDetails(message: "Invalid or missing context", errorCode: .invalidContext))],
-            receivedEvents)
+            receivedEvents.all)
         XCTAssertEqual(ProviderStatus.error, provider.status)
     }
 
@@ -1161,7 +1157,7 @@ class ProviderTests: XCTestCase {
         let provider = OfrepProvider(options: options)
         let api = OpenFeatureAPI()
 
-        var receivedEvents = [ProviderEvent]()
+        let receivedEvents = ReceivedEvents()
         let expectation = XCTestExpectation(description: "waiting for the error event")
         let cancellable = provider.observe().sink { event in
             receivedEvents.append(event)
@@ -1175,7 +1171,7 @@ class ProviderTests: XCTestCase {
             [.error(ProviderEventDetails(
                 message: "The value was resolved before the provider was ready",
                 errorCode: .providerNotReady))],
-            receivedEvents)
+            receivedEvents.all)
     }
 
     func testShouldMapAnUnhandledBulkErrorToAGeneralError() async {
@@ -1195,7 +1191,7 @@ class ProviderTests: XCTestCase {
         let provider = OfrepProvider(options: options)
         let api = OpenFeatureAPI()
 
-        var receivedEvents = [ProviderEvent]()
+        let receivedEvents = ReceivedEvents()
         let expectation = XCTestExpectation(description: "waiting for the error event")
         let cancellable = provider.observe().sink { event in
             receivedEvents.append(event)
@@ -1209,7 +1205,7 @@ class ProviderTests: XCTestCase {
             [.error(ProviderEventDetails(
                 message: "General error: Error details about FLAG_NOT_FOUND",
                 errorCode: .general))],
-            receivedEvents)
+            receivedEvents.all)
     }
 
     func testShouldCallTheAPIAgainWhenA429HasNoRetryAfterHeader() async {
@@ -1221,11 +1217,10 @@ class ProviderTests: XCTestCase {
         let provider = OfrepProvider(options: options)
         let api = OpenFeatureAPI()
 
-        var receivedEvents = [ProviderEvent]()
+        let receivedEvents = ReceivedEvents()
         let recovered = expectation(description: "Ready event after the 429")
         api.observe().sink { event in
-            receivedEvents.append(event)
-            if receivedEvents.count == 3 {
+            if receivedEvents.append(event) == 3 {
                 recovered.fulfill()
             }
         }.store(in: &cancellables)
@@ -1235,7 +1230,7 @@ class ProviderTests: XCTestCase {
             initialContext: ImmutableContext(targetingKey: "429-no-retry-after"))
         await fulfillment(of: [recovered], timeout: 10)
 
-        XCTAssertEqual([.ready(), .stale(), .ready()], Array(receivedEvents.prefix(3)),
+        XCTAssertEqual([.ready(), .stale(), .ready()], receivedEvents.prefix(3),
                        "Without a Retry-After header there is no window to respect, "
                        + "so the next poll has to reach the API again.")
         XCTAssertGreaterThanOrEqual(mockService.callCounter, 3)
@@ -1250,11 +1245,10 @@ class ProviderTests: XCTestCase {
         let provider = OfrepProvider(options: options)
         let api = OpenFeatureAPI()
 
-        var receivedEvents = [ProviderEvent]()
+        let receivedEvents = ReceivedEvents()
         let stale = expectation(description: "Stale event")
         api.observe().sink { event in
-            receivedEvents.append(event)
-            if receivedEvents.count == 2 {
+            if receivedEvents.append(event) == 2 {
                 stale.fulfill()
             }
         }.store(in: &cancellables)
@@ -1267,7 +1261,7 @@ class ProviderTests: XCTestCase {
         // Let a couple of poll intervals pass: the provider must not call the API again.
         try? await Task.sleep(nanoseconds: 2_500_000_000)
 
-        XCTAssertEqual([.ready(), .stale()], Array(receivedEvents.prefix(2)))
+        XCTAssertEqual([.ready(), .stale()], receivedEvents.prefix(2))
         XCTAssertEqual(callsWhenRateLimited, mockService.callCounter,
                        "A Retry-After given as an HTTP-date must be honoured like a delay in seconds.")
         XCTAssertEqual(ProviderStatus.stale, api.getProviderStatus())
@@ -1282,11 +1276,10 @@ class ProviderTests: XCTestCase {
         let provider = OfrepProvider(options: options)
         let api = OpenFeatureAPI()
 
-        var receivedEvents = [ProviderEvent]()
+        let receivedEvents = ReceivedEvents()
         let stale = expectation(description: "Stale event")
         api.observe().sink { event in
-            receivedEvents.append(event)
-            if receivedEvents.count == 2 {
+            if receivedEvents.append(event) == 2 {
                 stale.fulfill()
             }
         }.store(in: &cancellables)
@@ -1299,7 +1292,7 @@ class ProviderTests: XCTestCase {
         // Let a couple of poll intervals pass: the provider must not call the API again.
         try? await Task.sleep(nanoseconds: 2_500_000_000)
 
-        XCTAssertEqual([.ready(), .stale()], Array(receivedEvents.prefix(2)))
+        XCTAssertEqual([.ready(), .stale()], receivedEvents.prefix(2))
         XCTAssertEqual(callsWhenRateLimited, mockService.callCounter,
                        "A lowercase retry-after header must be honoured via a case-insensitive lookup.")
         XCTAssertEqual(ProviderStatus.stale, api.getProviderStatus())
@@ -1359,7 +1352,7 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(ProviderStatus.ready, api.getProviderStatus())
 
         // Collect any event the failing polls might emit (the replayed .ready is filtered out).
-        var eventsAfterReady = [ProviderEvent]()
+        let eventsAfterReady = ReceivedEvents()
         let cancellable = api.observe().sink { event in
             if event == .ready() { return }
             eventsAfterReady.append(event)
@@ -1376,8 +1369,8 @@ class ProviderTests: XCTestCase {
                        "a non-429 poll error must leave the provider ready")
         let value = try? provider.getBooleanEvaluation(key: "bool-flag", defaultValue: false, context: nil)
         XCTAssertEqual(value?.value, true, "the last-good cache must still serve flags after a poll error")
-        XCTAssertTrue(eventsAfterReady.isEmpty,
-                      "a non-429 poll error must not emit any event, got: \(eventsAfterReady)")
+        XCTAssertTrue(eventsAfterReady.all.isEmpty,
+                      "a non-429 poll error must not emit any event, got: \(eventsAfterReady.all)")
     }
 
     /// Polls until `store` has recorded a message containing `needle`, instead of sleeping a
