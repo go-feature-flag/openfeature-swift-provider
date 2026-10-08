@@ -22,7 +22,7 @@ class DoubleHook: Hook {
         let userKey = ctx.ctx?.getTargetingKey() ?? ""
         let key = ctx.flagKey
         guard let value = details.value as? Double else {
-            providerLogger.warning("Default value is not of type Double")
+            OpenFeatureAPI.shared.getLogger()?.warning("Default value is not of type Double")
             return
         }
 
@@ -49,7 +49,7 @@ class DoubleHook: Hook {
         let key = ctx.flagKey
 
         guard let value = ctx.defaultValue as? Double else {
-            providerLogger.warning("Default value is not of type Double")
+            OpenFeatureAPI.shared.getLogger()?.warning("Default value is not of type Double")
             return
         }
 

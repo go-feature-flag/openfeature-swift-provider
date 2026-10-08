@@ -56,7 +56,7 @@ class DataCollectorManager {
         do {
             (_, _) = try await self.goffAPI.postDataCollector(events: pending)
         } catch {
-            providerLogger.error("data collector error: \(error)")
+            OpenFeatureAPI.shared.getLogger()?.error("data collector error: \(error)")
         }
     }
 

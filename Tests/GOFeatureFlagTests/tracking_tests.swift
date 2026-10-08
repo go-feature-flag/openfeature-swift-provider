@@ -122,8 +122,8 @@ class TrackingTests: XCTestCase {
     }
 
     func testShouldIgnoreTrackingWhenTheDataCollectorIsDisabled() async throws {
-        let logs = CapturingLogHandler.Store()
-        OpenFeatureAPI.shared.setLogger(CapturingLogHandler.logger(label: "test.tracking", store: logs))
+        let logs = CapturingLogger.Store()
+        OpenFeatureAPI.shared.setLogger(CapturingLogger(store: logs))
         let mockNetworkService = MockNetworkingService(mockStatus: 200)
         let api = OpenFeatureAPI()
         await api.setProviderAndWait(
@@ -132,7 +132,7 @@ class TrackingTests: XCTestCase {
 
         api.getClient().track(key: "cart-checkout")
 
-        // `CapturingLogHandler` is installed on `OpenFeatureAPI.shared`, which OFREP also logs to,
+        // `CapturingLogger` is installed on `OpenFeatureAPI.shared`, which OFREP also logs to,
         // so assert that the message is present rather than that it is the only one.
         let expected =
             "tracking event cart-checkout ignored: the data collector is disabled (dataFlushInterval is 0)"

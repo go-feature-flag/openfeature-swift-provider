@@ -271,8 +271,8 @@ class GoFeatureFlagProviderTests: XCTestCase {
     }
 
     func testShouldForwardTheEvaluationLoggerToTheOfrepProvider() async throws {
-        let logs = CapturingLogHandler.Store()
-        let logger = CapturingLogHandler.logger(label: "test.evaluation", store: logs)
+        let logs = CapturingLogger.Store()
+        let logger = CapturingLogger(store: logs)
         let mockNetworkService = MockNetworkingService(mockStatus: 200)
         let provider = GoFeatureFlagProvider(
             options: GoFeatureFlagProviderOptions(
@@ -293,6 +293,28 @@ class GoFeatureFlagProviderTests: XCTestCase {
         XCTAssertTrue(logs.messages.contains("no flag found in cache for the key does-not-exist"),
                       "GoFeatureFlagProvider must forward the evaluation logger to the OFREP provider, "
                       + "got: \(logs.messages)")
+    }
+
+    func testShouldLogEveryFlagTypeThroughTheEvaluationOptionsLogger() async {
+        let logs = CapturingLogger.Store()
+        let provider = GoFeatureFlagProvider(
+            options: GoFeatureFlagProviderOptions(
+                endpoint: "https://localhost:1031",
+                pollInterval: 0,
+                networkService: MockNetworkingService(mockStatus: 200)
+            )
+        )
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(
+            provider: provider,
+            initialContext: ImmutableContext(targetingKey: "ede04e44-463d-40d1-8fc0-b1d6855578d0"))
+
+        // Each of the 5 typed overrides of GoFeatureFlagProvider has to forward the logger to OFREP.
+        let expected = evaluateEveryTypeWithTheWrongType(
+            client: api.getClient(), options: FlagEvaluationOptions(logger: CapturingLogger(store: logs)))
+
+        XCTAssertEqual(expected, logs.messages(at: .debug),
+                       "Every typed evaluation should log its type mismatch on the evaluation logger.")
     }
 
     func testShouldForwardTheContextChangesAndTheEventsOfTheOfrepProvider() async {
@@ -334,8 +356,8 @@ class GoFeatureFlagProviderTests: XCTestCase {
     }
 
     func testShouldLogWhenTheDataCollectorCallFails() async {
-        let logs = CapturingLogHandler.Store()
-        OpenFeatureAPI.shared.setLogger(CapturingLogHandler.logger(label: "test.collector", store: logs))
+        let logs = CapturingLogger.Store()
+        OpenFeatureAPI.shared.setLogger(CapturingLogger(store: logs))
         let mockNetworkService = MockNetworkingService(mockStatus: 401)
         let provider = GoFeatureFlagProvider(
             options: GoFeatureFlagProviderOptions(
@@ -358,12 +380,14 @@ class GoFeatureFlagProviderTests: XCTestCase {
         XCTAssertTrue(logged,
                       "A data collector call the relay proxy rejects should be logged, "
                       + "got: \(logs.messages)")
+        XCTAssertTrue(logs.messages(at: .error).contains { $0.contains("data collector error") },
+                      "A data collector failure should be logged at the error level, got: \(logs.messages)")
     }
 
     /// Polls until `store` has recorded a message containing `needle`, instead of sleeping a
     /// fixed interval and hoping the background flush already ran.
     private func waitForLog(
-        _ store: CapturingLogHandler.Store,
+        _ store: CapturingLogger.Store,
         containing needle: String,
         timeout: TimeInterval = 10.0
     ) async -> Bool {

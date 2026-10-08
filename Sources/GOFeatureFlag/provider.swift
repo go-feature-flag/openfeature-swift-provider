@@ -2,7 +2,6 @@ import Foundation
 import OFREP
 import OpenFeature
 import Combine
-import Logging
 
 struct Metadata: ProviderMetadata {
     var name: String? = "GO Feature Flag provider"
@@ -105,7 +104,7 @@ public final class GoFeatureFlagProvider: FeatureProvider {
         key: String,
         defaultValue: Bool,
         context: (any OpenFeature.EvaluationContext)?,
-        logger: Logger?)
+        logger: (any OpenFeatureLogger)?)
     throws -> OpenFeature.ProviderEvaluation<Bool> {
         return try self.ofrepProvider.getBooleanEvaluation(
             key: key,
@@ -130,7 +129,7 @@ public final class GoFeatureFlagProvider: FeatureProvider {
         key: String,
         defaultValue: String,
         context: (any OpenFeature.EvaluationContext)?,
-        logger: Logger?)
+        logger: (any OpenFeatureLogger)?)
     throws -> OpenFeature.ProviderEvaluation<String> {
         return try self.ofrepProvider.getStringEvaluation(
             key: key,
@@ -155,7 +154,7 @@ public final class GoFeatureFlagProvider: FeatureProvider {
         key: String,
         defaultValue: Int64,
         context: (any OpenFeature.EvaluationContext)?,
-        logger: Logger?)
+        logger: (any OpenFeatureLogger)?)
     throws -> OpenFeature.ProviderEvaluation<Int64> {
         return try self.ofrepProvider.getIntegerEvaluation(
             key: key,
@@ -180,7 +179,7 @@ public final class GoFeatureFlagProvider: FeatureProvider {
         key: String,
         defaultValue: Double,
         context: (any OpenFeature.EvaluationContext)?,
-        logger: Logger?)
+        logger: (any OpenFeatureLogger)?)
     throws -> OpenFeature.ProviderEvaluation<Double> {
         return try self.ofrepProvider.getDoubleEvaluation(
             key: key,
@@ -205,7 +204,7 @@ public final class GoFeatureFlagProvider: FeatureProvider {
         key: String,
         defaultValue: OpenFeature.Value,
         context: (any OpenFeature.EvaluationContext)?,
-        logger: Logger?)
+        logger: (any OpenFeatureLogger)?)
     throws -> OpenFeature.ProviderEvaluation<OpenFeature.Value> {
         return try self.ofrepProvider.getObjectEvaluation(
             key: key,
@@ -226,7 +225,7 @@ public final class GoFeatureFlagProvider: FeatureProvider {
         // When the data collector is disabled there is no buffer to attach the event to, this
         // mirrors `initialize` which only starts the manager when dataCollectorInterval > 0.
         guard self.options.dataCollectorInterval > 0 else {
-            providerLogger.warning(
+            OpenFeatureAPI.shared.getLogger()?.warning(
                 "tracking event \(key) ignored: the data collector is disabled (dataFlushInterval is 0)")
             return
         }
