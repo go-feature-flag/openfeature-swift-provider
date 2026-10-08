@@ -12,7 +12,7 @@ In conjuction with the [OpenFeature SDK](https://openfeature.dev/docs/reference/
 
 > [!IMPORTANT]
 > Starting with `0.5.0` this provider requires **Swift 6.1+**, **iOS 15+**, **tvOS 15+**, **watchOS 8+** and **macOS 12+**.
-> The OpenFeature Swift SDK `0.6.0` uses trailing commas in parameter lists (SE-0439), which need Swift 6.1 / Xcode 16.3+.
+> The OpenFeature Swift SDK `0.7.0` uses trailing commas in parameter lists (SE-0439), which need Swift 6.1 / Xcode 16.3+.
 
 For documentation related to flags management in GO Feature Flag, refer to the [GO Feature Flag documentation website](https://gofeatureflag.org/docs).
 
@@ -196,18 +196,31 @@ which returns a `ProviderStatus` (`.notReady`, `.ready`, `.error`, `.stale`, `.f
 
 ### Logging
 
-The provider uses [swift-log](https://github.com/apple/swift-log). Set a logger on the OpenFeature SDK
-and the provider will use it, both during the flag evaluations and for what it logs on its own
-(polling errors, data collection failures, ...):
+Set a logger on the OpenFeature SDK and the provider will use it, both during the flag evaluations and
+for what it logs on its own (polling errors, data collection failures, ...). A logger is any type
+conforming to `OpenFeatureLogger`:
 
 ```swift
-import Logging
+struct PrintLogger: OpenFeatureLogger {
+    func debug(_ message: @autoclosure () -> String) { print("[debug] \(message())") }
+    func info(_ message: @autoclosure () -> String) { print("[info] \(message())") }
+    func warning(_ message: @autoclosure () -> String) { print("[warning] \(message())") }
+    func error(_ message: @autoclosure () -> String) { print("[error] \(message())") }
+}
 
-OpenFeatureAPI.shared.setLogger(Logger(label: "org.gofeatureflag.provider"))
+OpenFeatureAPI.shared.setLogger(PrintLogger())
 ```
 
-If no logger is set on the SDK, the provider falls back on a default
-`Logger(label: "org.gofeatureflag.provider")`.
+To log through [swift-log](https://github.com/apple/swift-log), add the SDK's
+`.product(name: "OpenFeatureSwiftLog", package: "swift-sdk")` to your target and wrap your logger:
+
+```swift
+import OpenFeatureSwiftLog
+
+OpenFeatureAPI.shared.setLogger(SwiftLogLogger(label: "org.gofeatureflag.provider"))
+```
+
+If no logger is set on the SDK, the provider does not log.
 
 ## Releasing
 
