@@ -20,15 +20,13 @@ let package = Package(
             targets: ["OFREP"])
     ],
     dependencies: [
-        .package(url: "https://github.com/open-feature/swift-sdk.git", .exact("0.6.0")),
-        .package(url: "https://github.com/apple/swift-log", from: "1.0.0"),
+        .package(url: "https://github.com/open-feature/swift-sdk.git", .exact("0.7.0")),
     ],
     targets: [
         .target(
             name: "OFREP",
             dependencies: [
-                .product(name: "OpenFeature", package: "swift-sdk"),
-                .product(name: "Logging", package: "swift-log")
+                .product(name: "OpenFeature", package: "swift-sdk")
             ],
             plugins:[]
         ),
@@ -36,8 +34,7 @@ let package = Package(
             name: "GOFeatureFlag",
             dependencies: [
                 "OFREP",
-                .product(name: "OpenFeature", package: "swift-sdk"),
-                .product(name: "Logging", package: "swift-log")
+                .product(name: "OpenFeature", package: "swift-sdk")
             ],
             plugins:[]
         ),
@@ -46,8 +43,7 @@ let package = Package(
         .target(
             name: "TestSupport",
             dependencies: [
-                .product(name: "OpenFeature", package: "swift-sdk"),
-                .product(name: "Logging", package: "swift-log")
+                .product(name: "OpenFeature", package: "swift-sdk")
             ],
             path: "Tests/TestSupport"
         ),

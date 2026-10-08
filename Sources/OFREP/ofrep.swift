@@ -1,7 +1,6 @@
 import OpenFeature
 import Foundation
 import Combine
-import Logging
 
 struct Metadata: ProviderMetadata {
     var name: String? = "OFREP provider"
@@ -328,11 +327,11 @@ public final class OfrepProvider: FeatureProvider {
                         // provider, so it keeps serving the last-good cache. This is deliberately
                         // different from `initialize`, where a 401/403 is fatal because there is no
                         // cache to fall back on yet.
-                        providerLogger.error("error while polling the OFREP API: \(error)")
+                        OpenFeatureAPI.shared.getLogger()?.error("error while polling the OFREP API: \(error)")
                     }
                 } catch {
                     // Same policy for non-OfrepError failures: log and keep serving the last-good cache.
-                    providerLogger.error("error while polling the OFREP API: \(error)")
+                    OpenFeatureAPI.shared.getLogger()?.error("error while polling the OFREP API: \(error)")
                 }
             }
         }
@@ -349,10 +348,10 @@ extension OfrepProvider {
     }
 
     public func getBooleanEvaluation(key: String, defaultValue: Bool, context: EvaluationContext?,
-                                     logger: Logger?) throws -> ProviderEvaluation<Bool> {
+                                     logger: (any OpenFeatureLogger)?) throws -> ProviderEvaluation<Bool> {
         let flagCached = try self.genericEvaluation(key: key, logger: logger)
         guard let value = flagCached.value?.asBoolean() else {
-            self.resolveLogger(logger).debug("flag \(key) is not a boolean")
+            self.resolveLogger(logger)?.debug("flag \(key) is not a boolean")
             throw OpenFeatureError.typeMismatchError
         }
         return ProviderEvaluation<Bool>(
@@ -368,10 +367,10 @@ extension OfrepProvider {
     }
 
     public func getStringEvaluation(key: String, defaultValue: String, context: EvaluationContext?,
-                                    logger: Logger?) throws -> ProviderEvaluation<String> {
+                                    logger: (any OpenFeatureLogger)?) throws -> ProviderEvaluation<String> {
         let flagCached = try self.genericEvaluation(key: key, logger: logger)
         guard let value = flagCached.value?.asString() else {
-            self.resolveLogger(logger).debug("flag \(key) is not a string")
+            self.resolveLogger(logger)?.debug("flag \(key) is not a string")
             throw OpenFeatureError.typeMismatchError
         }
         return ProviderEvaluation<String>(
@@ -387,10 +386,10 @@ extension OfrepProvider {
     }
 
     public func getIntegerEvaluation(key: String, defaultValue: Int64, context: EvaluationContext?,
-                                     logger: Logger?) throws -> ProviderEvaluation<Int64> {
+                                     logger: (any OpenFeatureLogger)?) throws -> ProviderEvaluation<Int64> {
         let flagCached = try self.genericEvaluation(key: key, logger: logger)
         guard let value = flagCached.value?.asInteger() else {
-            self.resolveLogger(logger).debug("flag \(key) is not an integer")
+            self.resolveLogger(logger)?.debug("flag \(key) is not an integer")
             throw OpenFeatureError.typeMismatchError
         }
         return ProviderEvaluation<Int64>(
@@ -406,10 +405,10 @@ extension OfrepProvider {
     }
 
     public func getDoubleEvaluation(key: String, defaultValue: Double, context: EvaluationContext?,
-                                    logger: Logger?) throws -> ProviderEvaluation<Double> {
+                                    logger: (any OpenFeatureLogger)?) throws -> ProviderEvaluation<Double> {
         let flagCached = try self.genericEvaluation(key: key, logger: logger)
         guard let value = flagCached.value?.asDouble() else {
-            self.resolveLogger(logger).debug("flag \(key) is not a double")
+            self.resolveLogger(logger)?.debug("flag \(key) is not a double")
             throw OpenFeatureError.typeMismatchError
         }
         return ProviderEvaluation<Double>(
@@ -426,13 +425,13 @@ extension OfrepProvider {
     }
 
     public func getObjectEvaluation(key: String, defaultValue: Value, context: EvaluationContext?,
-                                    logger: Logger?) throws -> ProviderEvaluation<Value> {
+                                    logger: (any OpenFeatureLogger)?) throws -> ProviderEvaluation<Value> {
         let flagCached = try self.genericEvaluation(key: key, logger: logger)
         let objValue = flagCached.value?.asObject()
         let arrayValue = flagCached.value?.asArray()
 
         if objValue == nil && arrayValue == nil {
-            self.resolveLogger(logger).debug("flag \(key) is neither an object nor a list")
+            self.resolveLogger(logger)?.debug("flag \(key) is neither an object nor a list")
             throw OpenFeatureError.typeMismatchError
         }
 
@@ -464,18 +463,20 @@ extension OfrepProvider {
 
     /// Returns the logger provided by the SDK for this evaluation, falling back to the one the
     /// SDK was configured with globally.
-    private func resolveLogger(_ logger: Logger?) -> Logger {
-        return logger ?? providerLogger
+    private func resolveLogger(_ logger: (any OpenFeatureLogger)?) -> (any OpenFeatureLogger)? {
+        return logger ?? OpenFeatureAPI.shared.getLogger()
     }
 
-    private func genericEvaluation(key: String, logger: Logger?) throws -> OfrepEvaluationResponseFlag {
+    private func genericEvaluation(
+        key: String, logger: (any OpenFeatureLogger)?
+    ) throws -> OfrepEvaluationResponseFlag {
         guard let flagCached = self.withStateLock({ self.inMemoryCache[key] }) else {
-            self.resolveLogger(logger).debug("no flag found in cache for the key \(key)")
+            self.resolveLogger(logger)?.debug("no flag found in cache for the key \(key)")
             throw OpenFeatureError.flagNotFoundError(key: key)
         }
 
         if flagCached.isError() {
-            self.resolveLogger(logger).debug(
+            self.resolveLogger(logger)?.debug(
                 "error while evaluating the flag \(key): \(flagCached.errorDetails ?? "no details")")
             switch flagCached.errorCode {
             case .flagNotFound:

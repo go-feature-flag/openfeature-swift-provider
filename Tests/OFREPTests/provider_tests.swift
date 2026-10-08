@@ -1,7 +1,6 @@
 import XCTest
 import Combine
 import Foundation
-import Logging
 import OpenFeature
 @testable import OFREP
 import TestSupport
@@ -347,7 +346,7 @@ class ProviderTests: XCTestCase {
         XCTAssertEqual(details.value, false)
         XCTAssertEqual(details.errorMessage, "Parse error: Error details about PARSE_ERROR")
         XCTAssertEqual(details.flagKey, "my-other-flag")
-        XCTAssertEqual(details.reason, "error")
+        XCTAssertEqual(details.reason, "ERROR")
         XCTAssertEqual(details.variant, nil)
     }
 
@@ -1000,8 +999,8 @@ class ProviderTests: XCTestCase {
     }
 
     func testShouldFallBackOnTheGlobalSDKLoggerWhenNoneIsProvidedForTheEvaluation() async {
-        let globalLogs = CapturingLogHandler.Store()
-        OpenFeatureAPI.shared.setLogger(CapturingLogHandler.logger(label: "test.global", store: globalLogs))
+        let globalLogs = CapturingLogger.Store()
+        OpenFeatureAPI.shared.setLogger(CapturingLogger(store: globalLogs))
         let options = OfrepProviderOptions(
             endpoint: "http://localhost:1031/",
             pollInterval: 0,
@@ -1020,16 +1019,16 @@ class ProviderTests: XCTestCase {
     }
 
     func testShouldPreferTheLoggerOfTheEvaluationOverTheGlobalSDKOne() async {
-        let globalLogs = CapturingLogHandler.Store()
-        let sdkLogs = CapturingLogHandler.Store()
-        OpenFeatureAPI.shared.setLogger(CapturingLogHandler.logger(label: "test.global", store: globalLogs))
+        let globalLogs = CapturingLogger.Store()
+        let sdkLogs = CapturingLogger.Store()
+        OpenFeatureAPI.shared.setLogger(CapturingLogger(store: globalLogs))
         let options = OfrepProviderOptions(
             endpoint: "http://localhost:1031/",
             pollInterval: 0,
             networkService: MockNetworkingService(mockStatus: 200))
         let provider = OfrepProvider(options: options)
         let api = OpenFeatureAPI()
-        api.setLogger(CapturingLogHandler.logger(label: "test.sdk", store: sdkLogs))
+        api.setLogger(CapturingLogger(store: sdkLogs))
         await api.setProviderAndWait(provider: provider, initialContext: defaultEvaluationContext)
 
         _ = api.getClient().getBooleanDetails(key: "does-not-exist", defaultValue: false)
@@ -1041,6 +1040,40 @@ class ProviderTests: XCTestCase {
         XCTAssertFalse(globalLogs.messages.contains(expectedLog),
                        "The global logger should not be used when the SDK provides one for the evaluation.")
     }
+    func testShouldLogEveryFlagTypeThroughTheEvaluationOptionsLogger() async {
+        let logs = CapturingLogger.Store()
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0,
+            networkService: MockNetworkingService(mockStatus: 200))
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: OfrepProvider(options: options),
+                                     initialContext: defaultEvaluationContext)
+
+        let expected = evaluateEveryTypeWithTheWrongType(
+            client: api.getClient(), options: FlagEvaluationOptions(logger: CapturingLogger(store: logs)))
+
+        XCTAssertEqual(expected, logs.messages(at: .debug),
+                       "Every typed evaluation should log its type mismatch on the evaluation logger.")
+    }
+
+    func testShouldLogThroughTheClientLogger() async {
+        let logs = CapturingLogger.Store()
+        let options = OfrepProviderOptions(
+            endpoint: "http://localhost:1031/",
+            pollInterval: 0,
+            networkService: MockNetworkingService(mockStatus: 200))
+        let api = OpenFeatureAPI()
+        await api.setProviderAndWait(provider: OfrepProvider(options: options),
+                                     initialContext: defaultEvaluationContext)
+        let client = api.getClient()
+        client.setLogger(CapturingLogger(store: logs))
+
+        _ = client.getBooleanDetails(key: "does-not-exist", defaultValue: false)
+
+        XCTAssertEqual(["no flag found in cache for the key does-not-exist"], logs.messages(at: .debug))
+    }
+
     func testShouldEvaluateEveryTypeWithoutALogger() async throws {
         let options = OfrepProviderOptions(
             endpoint: "http://localhost:1031/",
@@ -1300,8 +1333,8 @@ class ProviderTests: XCTestCase {
     }
 
     func testShouldLogWhenPollingIsUnauthorized() async {
-        let logs = CapturingLogHandler.Store()
-        OpenFeatureAPI.shared.setLogger(CapturingLogHandler.logger(label: "test.polling", store: logs))
+        let logs = CapturingLogger.Store()
+        OpenFeatureAPI.shared.setLogger(CapturingLogger(store: logs))
         let options = OfrepProviderOptions(
             endpoint: "http://localhost:1031/",
             pollInterval: 1,
@@ -1322,8 +1355,8 @@ class ProviderTests: XCTestCase {
     }
 
     func testShouldLogWhenPollingReceivesAnErrorResponse() async {
-        let logs = CapturingLogHandler.Store()
-        OpenFeatureAPI.shared.setLogger(CapturingLogHandler.logger(label: "test.polling", store: logs))
+        let logs = CapturingLogger.Store()
+        OpenFeatureAPI.shared.setLogger(CapturingLogger(store: logs))
         let options = OfrepProviderOptions(
             endpoint: "http://localhost:1031/",
             pollInterval: 1,
@@ -1337,11 +1370,13 @@ class ProviderTests: XCTestCase {
         let logged = await waitForLog(logs, containing: "error while polling the OFREP API")
         XCTAssertTrue(logged,
                       "A poll rejected by the API itself should be logged, got: \(logs.messages)")
+        XCTAssertTrue(logs.messages(at: .error).contains { $0.contains("error while polling the OFREP API") },
+                      "A failing poll should be logged at the error level, got: \(logs.messages)")
     }
 
     func testShouldStayReadyAndKeepTheCacheWhenAPollFails() async {
-        let logs = CapturingLogHandler.Store()
-        OpenFeatureAPI.shared.setLogger(CapturingLogHandler.logger(label: "test.polling", store: logs))
+        let logs = CapturingLogger.Store()
+        OpenFeatureAPI.shared.setLogger(CapturingLogger(store: logs))
         let options = OfrepProviderOptions(
             endpoint: "http://localhost:1031/",
             pollInterval: 1,
@@ -1377,7 +1412,7 @@ class ProviderTests: XCTestCase {
     /// Polls until `store` has recorded a message containing `needle`, instead of sleeping a
     /// fixed interval and hoping the background poll already ran.
     private func waitForLog(
-        _ store: CapturingLogHandler.Store,
+        _ store: CapturingLogger.Store,
         containing needle: String,
         timeout: TimeInterval = 10.0
     ) async -> Bool {

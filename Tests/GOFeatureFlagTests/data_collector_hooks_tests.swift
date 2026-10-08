@@ -10,13 +10,13 @@ import TestSupport
 /// guards protecting the data collector hooks against a value of another type can only be reached
 /// by calling them directly, which is what these tests do.
 class DataCollectorHooksTests: XCTestCase {
-    private var logs: CapturingLogHandler.Store!
+    private var logs: CapturingLogger.Store!
     private var manager: DataCollectorManager!
 
     override func setUp() {
         super.setUp()
-        logs = CapturingLogHandler.Store()
-        OpenFeatureAPI.shared.setLogger(CapturingLogHandler.logger(label: "test.hooks", store: logs))
+        logs = CapturingLogger.Store()
+        OpenFeatureAPI.shared.setLogger(CapturingLogger(store: logs))
         let mockNetworkService = MockNetworkingService(mockStatus: 200)
         let options = GoFeatureFlagProviderOptions(
             endpoint: "https://localhost:1031",
@@ -117,7 +117,7 @@ class DataCollectorHooksTests: XCTestCase {
 
         XCTAssertEqual([], recordedEvents().map { $0.key },
                        "A value of another type cannot be reported, it must be dropped.")
-        XCTAssertEqual(expectedWarnings, logs.messages.sorted())
+        XCTAssertEqual(expectedWarnings, logs.messages(at: .warning).sorted())
     }
 
     func testShouldIgnoreAnEvaluationOfAnotherTypeOnAnError() {
@@ -133,7 +133,7 @@ class DataCollectorHooksTests: XCTestCase {
 
         XCTAssertEqual([], recordedEvents().map { $0.key },
                        "A default value of another type cannot be reported, it must be dropped.")
-        XCTAssertEqual(expectedWarnings, logs.messages.sorted())
+        XCTAssertEqual(expectedWarnings, logs.messages(at: .warning).sorted())
     }
 
     private let expectedWarnings = [
