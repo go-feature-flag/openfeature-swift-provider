@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/go-feature-flag/openfeature-swift-provider/compare/openfeature-swift-provider-v0.7.0...openfeature-swift-provider-v0.7.1) (2026-10-23)
+
+
+### Dependencies & Maintenance
+
+* Remove 'release-as' field from release config ([#37](https://github.com/go-feature-flag/openfeature-swift-provider/issues/37)) ([46c26a9](https://github.com/go-feature-flag/openfeature-swift-provider/commit/46c26a99aa2b1bad902addf7dd6f941a61923efc))
+
 ## [0.7.0](https://github.com/go-feature-flag/openfeature-swift-provider/compare/openfeature-swift-provider-v0.6.0...openfeature-swift-provider-v0.7.0) (2026-10-22)
 
 
